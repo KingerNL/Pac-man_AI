@@ -61,7 +61,6 @@ class SearchProblem:
         """
         util.raiseNotDefined()
 
-
 def tinyMazeSearch(problem):
     """
     Returns a sequence of moves that solves tinyMaze.  For any other maze, the
@@ -88,38 +87,58 @@ class Node:
             return action_path
 
 def depthFirstSearch(problem):
-    """
-    Search the deepest nodes in the search tree first.
+    # print("Start:", problem.getStartState())
+    # print("Is the start a goal?", problem.isGoalState(problem.getStartState()))
+    # print("Start's successors:", problem.getSuccessors(problem.getStartState()))
+    # print("Type of problem:", type(problem))
 
-    Your search algorithm needs to return a list of actions that reaches the
-    goal. Make sure to implement a graph search algorithm.
+    fringe = util.Stack()   # een container met een LIFO qeueing policy
+    exploredNodes = []      # Maak een list met exploredNodes
+    startNode = (problem.getStartState(), [])   # State, action 
+    fringe.push(startNode)
 
-    To get started, you might want to try some of these simple commands to
-    understand the search problem that is being passed in:
-    """
-
-    print("Start:", problem.getStartState())
-    print("Is the start a goal?", problem.isGoalState(problem.getStartState()))
-    print("Start's successors:", problem.getSuccessors(problem.getStartState()))
-    print("Type of problem:", type(problem))
-
-    current_node = Node(problem.getStartState(), None, 0, None)
-    closed = set([])
-    fringe = []
-    fringe.append(current_node)
-
-    while True:
-        if len(fringe) == 0:
-            return False
-        node = fringe.remove_first() # PSEUDOCODE!!!
-        if problem.isGoalState(node.state):
-            return node.getActionPath()
-        pass
+    while not fringe.isEmpty():      
+        currentState, actions = fringe.pop()
+        if currentState not in exploredNodes:
+            exploredNodes.append(currentState)
+            if problem.isGoalState(currentState):  
+                return actions
+            else :
+                successors = problem.getSuccessors(currentState)
+                for succState, succAction, succCost in successors:
+                    newAction = actions + [succAction] 
+                    newNode = (succState, newAction)
+                    fringe.push(newNode)
 
 def breadthFirstSearch(problem):
     """Search the shallowest nodes in the search tree first."""
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+    
+    fringe = util.Queue()   # een container met een FIFO qeueing policy
+    exploredNodes = []      # previously expanded states (for cycle checking), holds states
+    startNode = (problem.getStartState(), [], 0) #(state, action, cost)
+    fringe.push(startNode)
+    
+    while not fringe.isEmpty():
+        #begin exploring first (earliest-pushed) node on fringe
+        currentState, actions, currentCost = fringe.pop()
+        
+        if currentState not in exploredNodes:
+            #put popped node state into explored list
+            exploredNodes.append(currentState)
+
+            if problem.isGoalState(currentState):
+                return actions
+            else:
+                #list of (successor, action, stepCost)
+                successors = problem.getSuccessors(currentState)
+                
+                for succState, succAction, succCost in successors:
+                    newAction = actions + [succAction]
+                    newCost = currentCost + succCost
+                    newNode = (succState, newAction, newCost)
+
+                    fringe.push(newNode)
+
 
 def uniformCostSearch(problem):
     """Search the node of least total cost first."""

@@ -29,10 +29,7 @@
 import sys
 import inspect
 import heapq, random
-try:
-    from StringIO import StringIO ## for Python 2
-except ImportError:
-    from io import StringIO
+from io import StringIO
 
 
 class FixedRandom:
