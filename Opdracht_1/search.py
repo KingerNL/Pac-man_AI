@@ -142,8 +142,40 @@ def breadthFirstSearch(problem):
 
 def uniformCostSearch(problem):
     """Search the node of least total cost first."""
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+
+    #to be explored (FIFO): holds (item, cost)
+    frontier = util.PriorityQueue()
+
+    #previously expanded states (for cycle checking), holds state:cost
+    exploredNodes = {}
+    
+    startState = problem.getStartState()
+    startNode = (startState, [], 0) #(state, action, cost)
+    
+    frontier.push(startNode, 0)
+    
+    while not frontier.isEmpty():
+        #begin exploring first (lowest-cost) node on frontier
+        currentState, actions, currentCost = frontier.pop()
+       
+        if (currentState not in exploredNodes) or (currentCost < exploredNodes[currentState]):
+            #put popped node's state into explored list
+            exploredNodes[currentState] = currentCost
+
+            if problem.isGoalState(currentState):
+                return actions
+            else:
+                #list of (successor, action, stepCost)
+                successors = problem.getSuccessors(currentState)
+                
+                for succState, succAction, succCost in successors:
+                    newAction = actions + [succAction]
+                    newCost = currentCost + succCost
+                    newNode = (succState, newAction, newCost)
+
+                    frontier.update(newNode, newCost)
+
+    return actions
 
 def nullHeuristic(state, problem=None):
     """
@@ -154,8 +186,54 @@ def nullHeuristic(state, problem=None):
 
 def aStarSearch(problem, heuristic=nullHeuristic):
     """Search the node that has the lowest combined cost and heuristic first."""
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined()
+
+    #to be explored (FIFO): takes in item, cost+heuristic
+    frontier = util.PriorityQueue()
+
+    exploredNodes = [] #holds (state, cost)
+
+    startState = problem.getStartState()
+    startNode = (startState, [], 0) #(state, action, cost)
+
+    frontier.push(startNode, 0)
+
+    while not frontier.isEmpty():
+
+        #begin exploring first (lowest-combined (cost+heuristic) ) node on frontier
+        currentState, actions, currentCost = frontier.pop()
+
+        #put popped node into explored list
+        currentNode = (currentState, currentCost)
+        exploredNodes.append((currentState, currentCost))
+
+        if problem.isGoalState(currentState):
+            return actions
+
+        else:
+            #list of (successor, action, stepCost)
+            successors = problem.getSuccessors(currentState)
+
+            #examine each successor
+            for succState, succAction, succCost in successors:
+                newAction = actions + [succAction]
+                newCost = problem.getCostOfActions(newAction)
+                newNode = (succState, newAction, newCost)
+
+                #check if this successor has been explored
+                already_explored = False
+                for explored in exploredNodes:
+                    #examine each explored node tuple
+                    exploredState, exploredCost = explored
+
+                    if (succState == exploredState) and (newCost >= exploredCost):
+                        already_explored = True
+
+                #if this successor not explored, put on frontier and explored list
+                if not already_explored:
+                    frontier.push(newNode, newCost + heuristic(succState, problem))
+                    exploredNodes.append((succState, newCost))
+
+    return actions
 
 
 # Abbreviations
