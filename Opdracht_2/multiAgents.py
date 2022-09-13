@@ -91,7 +91,6 @@ class ReflexAgent(Agent):
         return -50 * foodScore - 100 * len(newFood) \
               + 1000 * manhattanDistance(newPos, curPos) \
               - total + 1000 * (len(curFood) - len(newFood))
-      # return successorGameState.getScore()
 
 def scoreEvaluationFunction(currentGameState):
     """
