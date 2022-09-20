@@ -87,95 +87,89 @@ class Node:
             return action_path
 
 def depthFirstSearch(problem):
-    # print("Start:", problem.getStartState())
-    # print("Is the start a goal?", problem.isGoalState(problem.getStartState()))
-    # print("Start's successors:", problem.getSuccessors(problem.getStartState()))
-    # print("Type of problem:", type(problem))
 
-    fringe = util.Stack()   # een container met een LIFO qeueing policy
-    exploredNodes = []      # Maak een list met exploredNodes
-    startNode = (problem.getStartState(), [])   # State, action 
-    fringe.push(startNode)
-
-    while not fringe.isEmpty():      
-        currentState, actions = fringe.pop()
-        if currentState not in exploredNodes:
-            exploredNodes.append(currentState)
-            if problem.isGoalState(currentState):  
-                return actions
-            else :
-                successors = problem.getSuccessors(currentState)
-                for succState, succAction, succCost in successors:
-                    newAction = actions + [succAction] 
-                    newNode = (succState, newAction)
-                    fringe.push(newNode)
+    # een container met een LIFO (Last In First Out) qeueing policy
+    fringe = util.Stack()                  
+    # Maak een list voor je explored Nodes     
+    Explored_Nodes = []                     
+    # State, action      
+    Start_Node = (problem.getStartState(), [])   
+    # Push de start
+    fringe.push(Start_Node)
+    
+    # Wanneer er nodes op de fringe zitten
+    while not fringe == 0:   
+        # Verwijder je current state van de list (Explored)
+        Huidige_Staat, acties = fringe.pop()        
+        # Indien de current state nog niet in explored nodes zit, voeg hem toe aan explored nodes
+        if Huidige_Staat not in Explored_Nodes:       
+            print("De x,y coördinaat van pacman is: " + str(Huidige_Staat))
+            # Voeg Huidige_Staat toe aan de Explored nodes list
+            Explored_Nodes.append(Huidige_Staat)                    
+            if problem.isGoalState(Huidige_Staat): return acties 
+            for Succes_State, Succes_Action, Stepcost in problem.getSuccessors(Huidige_Staat):
+                fringe.push((Succes_State, acties + [Succes_Action]))    
 
 def breadthFirstSearch(problem):
-    """Search the shallowest nodes in the search tree first."""
-    
-    fringe = util.Queue()   # een container met een FIFO qeueing policy
-    exploredNodes = []      # previously expanded states (for cycle checking), holds states
-    startNode = (problem.getStartState(), [], 0) #(state, action, cost)
-    fringe.push(startNode)
-    
-    while not fringe.isEmpty():
-        #begin exploring first (earliest-pushed) node on fringe
-        currentState, actions, currentCost = fringe.pop()
-        
-        if currentState not in exploredNodes:
-            #put popped node state into explored list
-            exploredNodes.append(currentState)
 
-            if problem.isGoalState(currentState):
-                return actions
-            else:
-                #list of (successor, action, stepCost)
-                successors = problem.getSuccessors(currentState)
-                
-                for succState, succAction, succCost in successors:
-                    newAction = actions + [succAction]
-                    newCost = currentCost + succCost
-                    newNode = (succState, newAction, newCost)
+    # een container met een FIFO qeueing policy
+    fringe = util.Queue()
+    # Maak een list voor je explored Nodes     
+    Explored_Nodes = []                     
+    # State, action      
+    Start_Node = (problem.getStartState(), [])   
+    # Push de start
+    fringe.push(Start_Node)
 
-                    fringe.push(newNode)
-
+    # Wanneer er nodes op de fringe zitten
+    while not fringe == 0:   
+        # Verwijder je current state van de list (Explored)
+        Huidige_Staat, acties = fringe.pop()        
+        # Indien de current state nog niet in explored nodes zit, voeg hem toe aan explored nodes
+        if Huidige_Staat not in Explored_Nodes:       
+            #print("De x,y coördinaat van pacman is: " + str(Huidige_Staat))
+            # Voeg Huidige_Staat toe aan de Explored nodes list
+            Explored_Nodes.append(Huidige_Staat)                    
+            if problem.isGoalState(Huidige_Staat): return acties 
+            for Succes_State, Succes_Action, Stepcost in problem.getSuccessors(Huidige_Staat):
+                fringe.push((Succes_State, acties + [Succes_Action]))       
 
 def uniformCostSearch(problem):
     """Search the node of least total cost first."""
 
     #to be explored (FIFO): holds (item, cost)
-    frontier = util.PriorityQueue()
+    fringe = util.PriorityQueue()
 
     #previously expanded states (for cycle checking), holds state:cost
-    exploredNodes = {}
+    Explored_Nodes = {}
     
-    startState = problem.getStartState()
-    startNode = (startState, [], 0) #(state, action, cost)
+    Start_Staat = problem.getStartState()
+    Start_Node = (Start_Staat, [], 0) #(state, action, cost)
     
-    frontier.push(startNode, 0)
+    fringe.push(Start_Node, 0)
     
-    while not frontier.isEmpty():
-        #begin exploring first (lowest-cost) node on frontier
-        currentState, actions, currentCost = frontier.pop()
+    while not fringe.isEmpty():
+        #begin exploring first (lowest-cost) node on fringe
+        Huidige_Staat, acties, Huidige_Cost = fringe.pop()
        
-        if (currentState not in exploredNodes) or (currentCost < exploredNodes[currentState]):
+        if (Huidige_Staat not in Explored_Nodes) or (Huidige_Cost < Explored_Nodes[Huidige_Staat]):
             #put popped node's state into explored list
-            exploredNodes[currentState] = currentCost
+            Explored_Nodes[Huidige_Staat] = Huidige_Cost
 
-            if problem.isGoalState(currentState):
-                return actions
+            if problem.isGoalState(Huidige_Staat):
+                return acties
             else:
                 #list of (successor, action, stepCost)
-                successors = problem.getSuccessors(currentState)
+                opvolger = problem.getSuccessors(Huidige_Staat)
                 
-                for succState, succAction, succCost in successors:
-                    newAction = actions + [succAction]
-                    newCost = currentCost + succCost
-                    newNode = (succState, newAction, newCost)
+                for Succes_State, Succes_Action, Succes_Cost in opvolger:
+                    New_Action = acties + [Succes_Action]
+                    New_Cost = Huidige_Cost + Succes_Cost
+                    New_Node = (Succes_State, New_Action, New_Cost)
 
-                    frontier.update(newNode, newCost)
+                    fringe.update(New_Node, New_Cost)
 
-    return actions
+    return acties
 
 def nullHeuristic(state, problem=None):
     """
@@ -187,54 +181,47 @@ def nullHeuristic(state, problem=None):
 def aStarSearch(problem, heuristic=nullHeuristic):
     """Search the node that has the lowest combined cost and heuristic first."""
 
-    #to be explored (FIFO): takes in item, cost+heuristic
-    frontier = util.PriorityQueue()
+    #to be explored (FIFO): takes in item, cost+heuristic (dijkstra + heuristic)
+    fringe = util.PriorityQueue()
+    # Maak een list voor je explored Nodes     
+    Explored_Nodes = []
+    # Definieer Start_Node met state, action, cost
+    Start_Node = (problem.getStartState(), [], 0)
+    # Push de start Node
+    fringe.push(Start_Node, 0)
 
-    exploredNodes = [] #holds (state, cost)
+    # Wanneer er nodes op de fringe zitten
+    while not fringe == 0:   
 
-    startState = problem.getStartState()
-    startNode = (startState, [], 0) #(state, action, cost)
-
-    frontier.push(startNode, 0)
-
-    while not frontier.isEmpty():
-
-        #begin exploring first (lowest-combined (cost+heuristic) ) node on frontier
-        currentState, actions, currentCost = frontier.pop()
+        #begin exploring first (lowest-combined (cost+heuristic) ) node on fringe
+        Huidige_Staat, acties, Huidige_Cost = fringe.pop()
 
         #put popped node into explored list
-        currentNode = (currentState, currentCost)
-        exploredNodes.append((currentState, currentCost))
+        Explored_Nodes.append((Huidige_Staat, Huidige_Cost))
 
-        if problem.isGoalState(currentState):
-            return actions
+        if problem.isGoalState(Huidige_Staat): return acties
 
-        else:
-            #list of (successor, action, stepCost)
-            successors = problem.getSuccessors(currentState)
+        #list of (successor, action, stepCost)
+        opvolger = problem.getSuccessors(Huidige_Staat)
 
-            #examine each successor
-            for succState, succAction, succCost in successors:
-                newAction = actions + [succAction]
-                newCost = problem.getCostOfActions(newAction)
-                newNode = (succState, newAction, newCost)
+        #loop langs elke successor
+        for Succes_State, Succes_Action, Succes_Cost in opvolger:
+            #Calculeer de nieuwe cost / nodes
+            New_Cost = problem.getCostOfActions(acties + [Succes_Action])
+            New_Node = (Succes_State, acties + [Succes_Action], New_Cost)
+            already_explored = False
+            
+            # Loop langs voor iedere explored node tuple          
+            for explored in Explored_Nodes:
+                exploredState, exploredCost = explored
+                if (Succes_State == exploredState) and (New_Cost >= exploredCost): already_explored = True
+                
+            # Indien de successor niet explored is, gooi em op de fringe en explored lijst
+            if not already_explored:
+                fringe.push(New_Node, New_Cost + heuristic(Succes_State, problem))
+                Explored_Nodes.append((Succes_State, New_Cost))
 
-                #check if this successor has been explored
-                already_explored = False
-                for explored in exploredNodes:
-                    #examine each explored node tuple
-                    exploredState, exploredCost = explored
-
-                    if (succState == exploredState) and (newCost >= exploredCost):
-                        already_explored = True
-
-                #if this successor not explored, put on frontier and explored list
-                if not already_explored:
-                    frontier.push(newNode, newCost + heuristic(succState, problem))
-                    exploredNodes.append((succState, newCost))
-
-    return actions
-
+    return acties
 
 # Abbreviations
 bfs = breadthFirstSearch
