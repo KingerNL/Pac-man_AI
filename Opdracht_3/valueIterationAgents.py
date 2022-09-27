@@ -1,19 +1,5 @@
-# valueIterationAgents.py
-# -----------------------
-# Licensing Information:  You are free to use or extend these projects for
-# educational purposes provided that (1) you do not distribute or publish
-# solutions, (2) you retain this notice, and (3) you provide clear
-# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
-# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
-# The core projects and autograders were primarily created by John DeNero
-# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
-# Student side autograding was added by Brad Miller, Nick Hay, and
-# Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
-
 import mdp, util
-
+import random
 from learningAgents import ValueEstimationAgent
 
 class ValueIterationAgent(ValueEstimationAgent):
@@ -45,8 +31,22 @@ class ValueIterationAgent(ValueEstimationAgent):
 
         # Write value iteration code here
         "*** YOUR CODE HERE ***"
-
-
+        states = self.mdp.getStates()
+        for i in range(self.iterations):
+            copyValues = self.values.copy()
+            for state in states:
+                if self.mdp.isTerminal(state):
+                    copyValues[state] = 0
+                    continue
+                maxQValue = -100000000
+                actions = self.mdp.getPossibleActions(state)
+                for action in actions:
+                    QValue = self.computeQValueFromValues(state, action)
+                    if QValue > maxQValue:
+                        maxQValue = QValue
+                copyValues[state] = maxQValue
+            self.values = copyValues
+            
     def getValue(self, state):
         """
           Return the value of the state (computed in __init__).
@@ -60,6 +60,14 @@ class ValueIterationAgent(ValueEstimationAgent):
           value function stored in self.values.
         """
         "*** YOUR CODE HERE ***"
+        Q_Average = 0
+        if self.mdp.isTerminal(state):
+            return 0
+        nextStateAndPorb = self.mdp.getTransitionStatesAndProbs(state, action)
+        for pair in nextStateAndPorb:
+            Q_Average = Q_Average + pair[1] * (self.mdp.getReward(state, action, pair[0]) +\
+                                                      self.discount * self.getValue(pair[0]))
+        return Q_Average
         util.raiseNotDefined()
 
     def computeActionFromValues(self, state):
@@ -72,6 +80,19 @@ class ValueIterationAgent(ValueEstimationAgent):
           terminal state, you should return None.
         """
         "*** YOUR CODE HERE ***"
+        if self.mdp.isTerminal(state):
+            return None
+        actions = self.mdp.getPossibleActions(state)
+        maxValue = -1000000000
+        bestActions = []
+        for action in actions:
+            valueOfAction = self.computeQValueFromValues(state, action)
+            if valueOfAction > maxValue:
+                bestActions = [action]
+                maxValue = valueOfAction 
+            if valueOfAction == maxValue:
+                bestActions.append(action)
+        return random.choice(bestActions)
         util.raiseNotDefined()
 
     def getPolicy(self, state):

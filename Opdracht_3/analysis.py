@@ -18,52 +18,57 @@
 
 # Set the given parameters to obtain the specified policies through
 # value iteration.
-
 def question2():
-    answerDiscount = 0.9
-    answerNoise = 0.2
-    return answerDiscount, answerNoise
+  answerDiscount = 0.9
+  answerNoise = 0.01
+  return answerDiscount, answerNoise
 
 def question3a():
-    answerDiscount = None
-    answerNoise = None
-    answerLivingReward = None
-    return answerDiscount, answerNoise, answerLivingReward
-    # If not possible, return 'NOT POSSIBLE'
+  #: Large negative living Reward
+  answerDiscount = 0.9
+  answerNoise = 0.2
+  answerLivingReward = -2.0
+  return answerDiscount, answerNoise, answerLivingReward
+  # If not possible, return 'NOT POSSIBLE'
 
 def question3b():
-    answerDiscount = None
-    answerNoise = None
-    answerLivingReward = None
-    return answerDiscount, answerNoise, answerLivingReward
-    # If not possible, return 'NOT POSSIBLE'
+  #: Learn slowly
+  answerDiscount = 0.3
+  answerNoise = 0.2
+  answerLivingReward = 0.0
+  return answerDiscount, answerNoise, answerLivingReward
+  # If not possible, return 'NOT POSSIBLE'
 
 def question3c():
-    answerDiscount = None
-    answerNoise = None
-    answerLivingReward = None
-    return answerDiscount, answerNoise, answerLivingReward
-    # If not possible, return 'NOT POSSIBLE'
+  #: Small negative living Reward
+  answerDiscount = 0.9
+  answerNoise = 0.2
+  answerLivingReward = -1.0
+  return answerDiscount, answerNoise, answerLivingReward
+  # If not possible, return 'NOT POSSIBLE'
 
 def question3d():
-    answerDiscount = None
-    answerNoise = None
-    answerLivingReward = None
-    return answerDiscount, answerNoise, answerLivingReward
-    # If not possible, return 'NOT POSSIBLE'
+  #: Default value will do.
+  answerDiscount = 0.9
+  answerNoise = 0.2
+  answerLivingReward = 0.0
+  return answerDiscount, answerNoise, answerLivingReward
+  # If not possible, return 'NOT POSSIBLE'
 
 def question3e():
-    answerDiscount = None
-    answerNoise = None
-    answerLivingReward = None
-    return answerDiscount, answerNoise, answerLivingReward
-    # If not possible, return 'NOT POSSIBLE'
+  #: Heavily reward living
+  answerDiscount = 0.9
+  answerNoise = 0.2
+  answerLivingReward = 10.0
+  return answerDiscount, answerNoise, answerLivingReward
+  # If not possible, return 'NOT POSSIBLE'
 
 def question6():
-    answerEpsilon = None
-    answerLearningRate = None
-    return answerEpsilon, answerLearningRate
-    # If not possible, return 'NOT POSSIBLE'
+  # answerEpsilon = None
+  # answerLearningRate = None
+  # return answerEpsilon, answerLearningRate
+  # If not possible, return 'NOT POSSIBLE'
+  return 'NOT POSSIBLE'
 
 if __name__ == '__main__':
     print('Answers to analysis questions:')

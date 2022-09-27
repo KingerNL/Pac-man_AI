@@ -4,7 +4,7 @@ import numpy as np
 from game import Agent
 
 # Mijn eigen gemaakte manhatten distance
-def Manhattan_Distance(pun1, pun2):
+def manhattan_distance(pun1, pun2):
     afstand = 0
     punten = zip(pun1, pun2)
     for x1, x2 in punten:
@@ -13,9 +13,6 @@ def Manhattan_Distance(pun1, pun2):
         afstand = afstand + Absoluut_Verschil
 
     return afstand
-
-
-
 
 class ReflexAgent(Agent):
   """
@@ -27,7 +24,7 @@ class ReflexAgent(Agent):
     headers.
   """
 
-  def getAction(self, gameState):
+  def getAction(self, game_state):
       """
       You do not need to change this method, but you're welcome to.
 
@@ -37,10 +34,10 @@ class ReflexAgent(Agent):
       some Directions.X for some X in the set {North, South, West, East, Stop}
       """
       # Collect legal moves and successor states
-      legalMoves = gameState.getLegalActions()
+      legalMoves = game_state.getLegalActions()
 
       # Choose one of the best actions
-      scores = [self.evaluationFunction(gameState, action) for action in legalMoves]
+      scores = [self.evaluationFunction(game_state, action) for action in legalMoves]
       bestScore = max(scores)
       bestIndices = [index for index in range(len(scores)) if scores[index] == bestScore]
       chosenIndex = random.choice(bestIndices) # Pick randomly among the best
@@ -49,7 +46,7 @@ class ReflexAgent(Agent):
 
       return legalMoves[chosenIndex]
 
-  def evaluationFunction(self, currentGameState, action):
+  def evaluationFunction(self, current_game_state, action):
       """
       Design a better evaluation function here.
 
@@ -57,37 +54,37 @@ class ReflexAgent(Agent):
       GameStates (pacman.py) and returns a number, where higher numbers are better.
 
       The code below extracts some useful information from the state, like the
-      remaining food (newFood) and Pacman position after moving (newPos).
-      newScaredTimes holds the number of moves that each ghost will remain
+      remaining food (new_food) and Pacman position after moving (new_position).
+      scared_time_remaining holds the number of moves that each ghost will remain
       scared because of Pacman having eaten a power pellet.
 
       Print out these variables to see what you're getting, then combine them
       to create a masterful evaluation function.
       """
       # Useful information you can extract from a GameState (pacman.py)
-      successorGameState = currentGameState.generatePacmanSuccessor(action)
-      newPos = successorGameState.getPacmanPosition()
-      curPos = currentGameState.getPacmanPosition()
-      newFood = successorGameState.getFood().asList()
-      curFood = currentGameState.getFood().asList()
-      newGhostStates = successorGameState.getGhostStates()
-      newGhostPos = successorGameState.getGhostPositions()
-      newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
+      successorGameState = current_game_state.generatePacmanSuccessor(action)
+      new_position = successorGameState.getPacmanPosition()
+      current_position = current_game_state.getPacmanPosition()
+      new_food = successorGameState.getFood().asList()
+      current_food = current_game_state.getFood().asList()
+      new_ghost_position = successorGameState.getGhostPositions()
 
-      "*** YOUR CODE HERE ***"        
-      Food_Score, Ghost_Score, Total_Score = 100, 100, 0
-      for fp in curFood:
-        Food_Score = min(Food_Score, Manhattan_Distance(fp, newPos))
-        Total_Score += Manhattan_Distance(fp, newPos)
+      "*** YOUR CODE HERE ***"
+      food_score, ghost_score, total_score = 100, 100, 0
+      for fp in current_food:
+        food_score = min(food_score, manhattan_distance(fp, new_position))
+        total_score += manhattan_distance(fp, new_position)
       
-      for gp in newGhostPos:
-        Ghost_Score = min(Ghost_Score, Manhattan_Distance(newPos, gp))
-      if Ghost_Score < 3: return 100 * Ghost_Score - 10000
-      elif len(newFood) == 0: return 10000
+      for gp in new_ghost_position:
+        ghost_score = min(ghost_score, manhattan_distance(new_position, gp))
+      if ghost_score < 3: 
+        return 100 * ghost_score - 10000
+      elif len(new_food) == 0: 
+        return 10000
       else: 
-        return -50 * Food_Score - 100 * len(newFood) + 1000 * Manhattan_Distance(newPos, curPos) - Total_Score + 1000 * (len(curFood) - len(newFood))
+        return -50 * food_score - 100 * len(new_food) + 1000 * manhattan_distance(new_position, current_position) - total_score + 1000 * (len(current_food) - len(new_food))
 
-def scoreEvaluationFunction(currentGameState):
+def scoreEvaluationFunction(current_game_state):
     """
       This default evaluation function just returns the score of the state.
       The score is the same one displayed in the Pacman GUI.
@@ -95,7 +92,7 @@ def scoreEvaluationFunction(currentGameState):
       This evaluation function is meant for use with adversarial search agents
       (not reflex agents).
     """
-    return currentGameState.getScore()
+    return current_game_state.getScore()
 
 class MultiAgentSearchAgent(Agent):
     """
@@ -122,7 +119,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
       Your minimax agent (question 2)
     """
 
-    def getAction(self, gameState):
+    def getAction(self, game_state):
         """
           Returns the minimax action from the current gameState using self.depth
           and self.evaluationFunction.
@@ -137,7 +134,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
             Returns the successor game state after an agent takes an action
 
           gameState.getNumAgents():
-            Returns the Total_Score number of agents in the game
+            Returns the total_score number of agents in the game
         """
         "*** YOUR CODE HERE ***"
         def maxvalue(curState, curDepth, idx, numGhost):
@@ -169,10 +166,10 @@ class MinimaxAgent(MultiAgentSearchAgent):
           return score
 
         score, optAction = -float("inf"), None
-        numGhost = gameState.getNumAgents() - 1
-        candActions = gameState.getLegalActions(0)
+        numGhost = game_state.getNumAgents() - 1
+        candActions = game_state.getLegalActions(0)
         for action in candActions:
-          curScore = minvalue(gameState.generateSuccessor(0, action), self.depth, 1, numGhost)
+          curScore = minvalue(game_state.generateSuccessor(0, action), self.depth, 1, numGhost)
           if curScore > score:
             score, optAction = curScore, action
         return optAction
@@ -183,13 +180,13 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
       Your minimax agent with alpha-beta pruning (question 3)
     """
 
-    def getAction(self, gameState):
+    def getAction(self, game_state):
         """
           Returns the minimax action using self.depth and self.evaluationFunction
         """
         "*** YOUR CODE HERE ***"
         alpha, beta = -float("inf"), float("inf")
-        numGhost = gameState.getNumAgents() - 1
+        numGhost = game_state.getNumAgents() - 1
         def maxvalue(curState, curDepth, idx, alpha, beta):
           '''
           Max Function for pacman
@@ -223,9 +220,9 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
           return v
 
         optAction, score = None, -float("inf")
-        candActions = gameState.getLegalActions(0)
+        candActions = game_state.getLegalActions(0)
         for action in candActions:
-          curScore = minvalue(gameState.generateSuccessor(0, action), self.depth, 1, alpha, beta)
+          curScore = minvalue(game_state.generateSuccessor(0, action), self.depth, 1, alpha, beta)
           if curScore > score:
             score = curScore
             optAction = action
@@ -237,14 +234,14 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
     Your expectimax agent (question 4)
   """
 
-  def getAction(self, gameState):
+  def getAction(self, game_state):
       """
         Returns the expectimax action using self.depth and self.evaluationFunction
         All ghosts should be modeled as choosing uniformly at random from their
         legal moves.
       """
       "*** YOUR CODE HERE ***"
-      numGhost = gameState.getNumAgents() - 1
+      numGhost = game_state.getNumAgents() - 1
       def expectimax(curState, curDepth, idx):
         '''
         Expected Score for ghost who acts randomly
@@ -272,16 +269,16 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
         return score
 
       optAction, score = None, -float("inf")
-      candActions = gameState.getLegalActions(0)
+      candActions = game_state.getLegalActions(0)
       for action in candActions:          
-        curScore = expectimax(gameState.generateSuccessor(0, action), self.depth, 1)
+        curScore = expectimax(game_state.generateSuccessor(0, action), self.depth, 1)
         if curScore > score:
           score = curScore
           optAction = action
       return optAction
       util.raiseNotDefined()
 
-def betterEvaluationFunction(currentGameState):
+def betterEvaluationFunction(current_game_state):
   """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
     evaluation function (question 5).
@@ -290,26 +287,26 @@ def betterEvaluationFunction(currentGameState):
   "*** YOUR CODE HERE ***"    
   INF = 1e6    
 
-  foodPos = currentGameState.getFood().asList()
-  ghostPos = currentGameState.getGhostPositions()
-  curPos = currentGameState.getPacmanPosition()
-  capsules = currentGameState.getCapsules()
+  foodPos = current_game_state.getFood().asList()
+  ghostPos = current_game_state.getGhostPositions()
+  current_position = current_game_state.getPacmanPosition()
+  capsules = current_game_state.getCapsules()
 
-  minFoodDis, minGhostDis, minCapDis, Total_Score = 100, 100, 100, 0
+  minFoodDis, minGhostDis, minCapDis, total_score = 100, 100, 100, 0
   for food in foodPos:
-    minFoodDis = min(minFoodDis, Manhattan_Distance(food, curPos))
-    Total_Score += Manhattan_Distance(food, curPos)
+    minFoodDis = min(minFoodDis, manhattan_distance(food, current_position))
+    total_score += manhattan_distance(food, current_position)
   for ghost in ghostPos:
-    minGhostDis = min(minGhostDis, Manhattan_Distance(ghost, curPos))
+    minGhostDis = min(minGhostDis, manhattan_distance(ghost, current_position))
   # for cap in capsules:
-    # minCapDis = min(minCapDis, Manhattan_Distance(cap, curPos))
+    # minCapDis = min(minCapDis, manhattan_distance(cap, current_position))
 
-  if minGhostDis < 3: score = -1e5 - minFoodDis - Total_Score
+  if minGhostDis < 3: score = -1e5 - minFoodDis - total_score
   elif len(foodPos) == 0: score = INF + minGhostDis
   else:
-    score = -50 * minFoodDis - Total_Score + minGhostDis * 2 - len(foodPos) * 2000
+    score = -50 * minFoodDis - total_score + minGhostDis * 2 - len(foodPos) * 2000
 
-  # if len(foodPos) < 3: print 'Debug: ', score, 'food:', len(foodPos), 'curPos:', curPos,
+  # if len(foodPos) < 3: print 'Debug: ', score, 'food:', len(foodPos), 'current_position:', current_position,
   # if len(foodPos) > 0: print 'first food:', foodPos[0]
   # else: print ' '
   return score
