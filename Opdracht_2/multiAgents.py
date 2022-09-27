@@ -1,22 +1,21 @@
-# multiAgents.py
-# --------------
-# Licensing Information:  You are free to use or extend these projects for
-# educational purposes provided that (1) you do not distribute or publish
-# solutions, (2) you retain this notice, and (3) you provide clear
-# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
-# Attribution Information: The Pacman AI projects were developed at UC Berkeley.
-# The core projects and autograders were primarily created by John DeNero
-# (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
-# Student side autograding was added by Brad Miller, Nick Hay, and
-# Pieter Abbeel (pabbeel@cs.berkeley.edu).
-
-
-from util import manhattanDistance
 from game import Directions
 import random, util
-
+import numpy as np
 from game import Agent
+
+# Mijn eigen gemaakte manhatten distance
+def Manhattan_Distance(pun1, pun2):
+    afstand = 0
+    punten = zip(pun1, pun2)
+    for x1, x2 in punten:
+        verschil = x2 - x1
+        Absoluut_Verschil = abs(verschil)
+        afstand = afstand + Absoluut_Verschil
+
+    return afstand
+
+
+
 
 class ReflexAgent(Agent):
   """
@@ -27,7 +26,6 @@ class ReflexAgent(Agent):
     it in any way you see fit, so long as you don't touch our method
     headers.
   """
-
 
   def getAction(self, gameState):
       """
@@ -67,7 +65,6 @@ class ReflexAgent(Agent):
       to create a masterful evaluation function.
       """
       # Useful information you can extract from a GameState (pacman.py)
-      # Useful information you can extract from a GameState (pacman.py)
       successorGameState = currentGameState.generatePacmanSuccessor(action)
       newPos = successorGameState.getPacmanPosition()
       curPos = currentGameState.getPacmanPosition()
@@ -78,19 +75,17 @@ class ReflexAgent(Agent):
       newScaredTimes = [ghostState.scaredTimer for ghostState in newGhostStates]
 
       "*** YOUR CODE HERE ***"        
-      foodScore, ghostScore, total = 100, 100, 0
+      Food_Score, Ghost_Score, Total_Score = 100, 100, 0
       for fp in curFood:
-        foodScore = min(foodScore, manhattanDistance(fp, newPos))
-        total += manhattanDistance(fp, newPos)
+        Food_Score = min(Food_Score, Manhattan_Distance(fp, newPos))
+        Total_Score += Manhattan_Distance(fp, newPos)
       
       for gp in newGhostPos:
-        ghostScore = min(ghostScore, manhattanDistance(newPos, gp))
-      if ghostScore < 3: return 100 * ghostScore - 10000
+        Ghost_Score = min(Ghost_Score, Manhattan_Distance(newPos, gp))
+      if Ghost_Score < 3: return 100 * Ghost_Score - 10000
       elif len(newFood) == 0: return 10000
       else: 
-        return -50 * foodScore - 100 * len(newFood) \
-              + 1000 * manhattanDistance(newPos, curPos) \
-              - total + 1000 * (len(curFood) - len(newFood))
+        return -50 * Food_Score - 100 * len(newFood) + 1000 * Manhattan_Distance(newPos, curPos) - Total_Score + 1000 * (len(curFood) - len(newFood))
 
 def scoreEvaluationFunction(currentGameState):
     """
@@ -142,7 +137,7 @@ class MinimaxAgent(MultiAgentSearchAgent):
             Returns the successor game state after an agent takes an action
 
           gameState.getNumAgents():
-            Returns the total number of agents in the game
+            Returns the Total_Score number of agents in the game
         """
         "*** YOUR CODE HERE ***"
         def maxvalue(curState, curDepth, idx, numGhost):
@@ -290,7 +285,7 @@ def betterEvaluationFunction(currentGameState):
   """
     Your extreme ghost-hunting, pellet-nabbing, food-gobbling, unstoppable
     evaluation function (question 5).
-    DESCRIPTION: <write something here so we know what you did>
+    DESCRIPTION: <mart schreef hier wat, zodat je weet wat ik heb gedaan>
   """
   "*** YOUR CODE HERE ***"    
   INF = 1e6    
@@ -300,19 +295,19 @@ def betterEvaluationFunction(currentGameState):
   curPos = currentGameState.getPacmanPosition()
   capsules = currentGameState.getCapsules()
 
-  minFoodDis, minGhostDis, minCapDis, total = 100, 100, 100, 0
+  minFoodDis, minGhostDis, minCapDis, Total_Score = 100, 100, 100, 0
   for food in foodPos:
-    minFoodDis = min(minFoodDis, manhattanDistance(food, curPos))
-    total += manhattanDistance(food, curPos)
+    minFoodDis = min(minFoodDis, Manhattan_Distance(food, curPos))
+    Total_Score += Manhattan_Distance(food, curPos)
   for ghost in ghostPos:
-    minGhostDis = min(minGhostDis, manhattanDistance(ghost, curPos))
+    minGhostDis = min(minGhostDis, Manhattan_Distance(ghost, curPos))
   # for cap in capsules:
-    # minCapDis = min(minCapDis, manhattanDistance(cap, curPos))
+    # minCapDis = min(minCapDis, Manhattan_Distance(cap, curPos))
 
-  if minGhostDis < 3: score = -1e5 - minFoodDis - total
+  if minGhostDis < 3: score = -1e5 - minFoodDis - Total_Score
   elif len(foodPos) == 0: score = INF + minGhostDis
   else:
-    score = -50 * minFoodDis - total + minGhostDis * 2 - len(foodPos) * 2000
+    score = -50 * minFoodDis - Total_Score + minGhostDis * 2 - len(foodPos) * 2000
 
   # if len(foodPos) < 3: print 'Debug: ', score, 'food:', len(foodPos), 'curPos:', curPos,
   # if len(foodPos) > 0: print 'first food:', foodPos[0]
