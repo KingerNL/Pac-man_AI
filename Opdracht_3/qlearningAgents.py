@@ -13,6 +13,7 @@
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
 
+from argparse import Action
 from game import *
 from learningAgents import ReinforcementAgent
 from featureExtractors import *
@@ -46,109 +47,72 @@ class QLearningAgent(ReinforcementAgent):
         self.qVals = util.Counter()
 
     def getQValue(self, state, action):
-        """
-          Returns Q(state,action)
-          Should return 0.0 if we have never seen a state
-          or the Q node value otherwise
-        """
-        #get the value corresponding to Q(state, action)
+        # get the value corresponding to Q(state, action)
+        # If Should return 0.0 if we never seen a state or (state,action) tuple
+        if self.qVals[(state, action)] == 0:
+            return 0.0
         return self.qVals[(state, action)]
 
-
     def computeValueFromQValues(self, state):
-        """
-          Returns max_action Q(state,action)
-          where the max is over legal actions.  Note that if
-          there are no legal actions, which is the case at the
-          terminal state, you should return a value of 0.0.
-        """
-        #get legal actions
-        actions = self.getLegalActions(state)
-        values = []
         
-        #return 0 if there are no actions from this state
-        if len(actions) == 0:
-            return 0
-        #iterate over actions and add all the qValues from any action from this state
-        else:
-            for action in actions:
-                values.append(self.getQValue(state, action))
-        #return the highest value
-        return max(values)
-                
+        legal_actions = self.getLegalActions(state)
 
+        if legal_actions:
+            return max([self.getQValue(state, a) for a in legal_actions])
+
+        else:
+            return 0.0
+                
     def computeActionFromQValues(self, state):
-        """
-          Compute the best action to take in a state.  Note that if there
-          are no legal actions, which is the case at the terminal state,
-          you should return None.
-        """
+        legal_actions = self.getLegalActions(state)
+
+        if not legal_actions:
+            return None
+
+        action_QValue_pairs = [(a, self.getQValue(state, a)) for a in legal_actions]
+        max_pair = max(action_QValue_pairs, key=lambda x: x[1])
+        return max_pair[0]
+    
+    def getAction(self, state):
+        legal_actions = self.getLegalActions(state)
+        random_action = util.flipCoin(self.epsilon)
+
+        if not legal_actions:
+            return None
+
+        if random_action:
+            return random.choice(legal_actions)
+        else:
+            return self.getPolicy(state)
+
+    def update(self, state, action, nextState, reward):
+        #calculate Q(s,a)
+        oldValue = self.getQValue(state, action)
+        theOld = (1-self.alpha) * oldValue
+        theReward = self.alpha * reward
+        if not nextState:
+            self.qVals[(state, action)] = theOld + theReward
+        else:
+            theNextState = self.alpha * self.discount * self.getValue(nextState)
+            self.qVals[(state, action)] = theOld +theReward + theNextState
+
+    def getPolicy(self, state):
+        # Compute the best action to take in a state.  
+        # Note that if there are no legal actions, which is the case at the terminal state,
+        # you should return None.
         actions = self.getLegalActions(state)
-        allActions = []
-        
         #return None if there are no actions from this state
         if len(actions) == 0:
             return None
-        #iterate over actions and append all the qvalues and actions to 'allActions'
-        else:
-            for action in actions:
-                allActions.append((self.getQValue(state, action), action))
-            #get all the qValue, action pairs that are the best
-            bestActions = [pair for pair in allActions if pair == max(allActions)]
-            #randomly choose a qValue, action pair if two or more are the best
-            bestActionPair = random.choice(bestActions)
-        #return the best action
-        return bestActionPair[1]
-    
-    def getAction(self, state):
-        """
-          Compute the action to take in the current state.  With
-          probability self.epsilon, we should take a random action and
-          take the best policy action otherwise.  Note that if there are
-          no legal actions, which is the case at the terminal state, you
-          should choose None as the action.
-
-          HINT: You might want to use util.flipCoin(prob)
-          HINT: To pick randomly from a list, use random.choice(list)
-        """
-        # Pick Action
-        legalActions = self.getLegalActions(state)
-        #possibly pick a random action with probability epsilon
-        p = self.epsilon
-        if util.flipCoin(p):
-            return random.choice(legalActions)
-        #else return the best action
-        else:
-            return self.computeActionFromQValues(state)
-
-    def update(self, state, action, nextState, reward):
-        """
-          The parent class calls this to observe a
-          state = action => nextState and reward transition.
-          You should do your Q-Value update here
-
-          NOTE: You should never call this function,
-          it will be called on your behalf
-        """
-        """
-          QLearning update algorithm:
-          
-          Q(s,a) = (1-alpha)*Q(s,a) + alpha*sample
-          
-          ***sample = R(s,a,s') + gamma*max(Q(s',a'))***
-          
-        """
-        #calculate Q(s,a)
-        qSa = self.getQValue(state, action)
-        #get the sample
-        sample = reward + self.discount*self.computeValueFromQValues(nextState)
-        #perform the update and add it to our qVals dict-counter
-        self.qVals[(state, action)] = (1-self.alpha)*qSa + self.alpha*sample
-
-    def getPolicy(self, state):
         return self.computeActionFromQValues(state)
 
     def getValue(self, state):
+        # Note that if there are no legal actions, which is the case at the terminal state, 
+        # you should return a value of 0.0.
+        actions = self.getLegalActions(state)
+        #return None if there are no actions from this state
+        if len(actions) == 0:
+            return 0.0
         return self.computeValueFromQValues(state)
 
 
@@ -202,16 +166,22 @@ class ApproximateQAgent(PacmanQAgent):
 
     def getQValue(self, state, action):
         """
-          Should return Q(state,action) = w * featureVector
-          where * is the dotProduct operator
+        Should return Q(state,action) = w * featureVector
+        where * is the dotProduct operator
         """
-        #get features using the Identity extractor
-        features = self.featExtractor.getFeatures(state,action)
-        #get weights
-        weights = self.getWeights()
-        #comupute dot product or features and weights
-        dotProduct = features*weights
-        return dotProduct
+        """Description:
+            [Here we follow the formula:
+            Q(s,a) = SUM ( Wi * feature(s,a)) for all features]
+            """
+        """ YOUR CODE HERE """
+        q = 0
+        currentFeatures = self.featExtractor.getFeatures(state,action)
+        for feature in currentFeatures:
+            score = currentFeatures[feature]
+            q += self.weights[feature] * score
+        return q
+        # util.raiseNotDefined()
+        """ END CODE """
 
     def update(self, state, action, nextState, reward):
         """
@@ -232,7 +202,6 @@ class ApproximateQAgent(PacmanQAgent):
         #update weights
         self.weights = weights.copy()
         
-
     def final(self, state):
         "Called at the end of each game."
         # call the super-class final method

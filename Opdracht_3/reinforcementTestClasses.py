@@ -279,7 +279,7 @@ class ApproximateQLearningTest(testClasses.TestCase):
 
     def runAgent(self, moduleDict, numExperiences):
         agent = moduleDict['qlearningAgents'].ApproximateQAgent(extractor=self.extractor, **self.opts)
-        states = filter(lambda state : len(self.grid.getPossibleActions(state)) > 0, self.grid.getStates())
+        states = list(filter(lambda state : len(self.grid.getPossibleActions(state)) > 0, self.grid.getStates()))
         sorted(states)
         randObj = FixedRandom().random
         # choose a random start state and a random possible action from that state
@@ -616,7 +616,7 @@ class Question6Test(testClasses.TestCase):
     def execute(self, grades, moduleDict, solutionDict):
         studentSolution = moduleDict['analysis'].question6()
         studentSolution = str(studentSolution).strip().lower()
-        hashedSolution = sha1(studentSolution).hexdigest()
+        hashedSolution = sha1(studentSolution.encode('utf-8')).hexdigest()
         if hashedSolution == '46729c96bb1e4081fdc81a8ff74b3e5db8fba415':
             return self.testPass(grades)
         else:

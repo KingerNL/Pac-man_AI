@@ -19,56 +19,54 @@
 # Set the given parameters to obtain the specified policies through
 # value iteration.
 def question2():
-  answerDiscount = 0.9
-  answerNoise = 0.01
-  return answerDiscount, answerNoise
+    answerDiscount = 0.9
+    answerNoise = 0
+    return answerDiscount, answerNoise
 
 def question3a():
-  #: Large negative living Reward
-  answerDiscount = 0.9
-  answerNoise = 0.2
-  answerLivingReward = -2.0
-  return answerDiscount, answerNoise, answerLivingReward
-  # If not possible, return 'NOT POSSIBLE'
+    answerDiscount = .9
+    answerNoise = .2
+    answerLivingReward = -2
+    return answerDiscount, answerNoise, answerLivingReward
+    # If not possible, return 'NOT POSSIBLE'
 
 def question3b():
-  #: Learn slowly
-  answerDiscount = 0.3
-  answerNoise = 0.2
-  answerLivingReward = 0.0
-  return answerDiscount, answerNoise, answerLivingReward
-  # If not possible, return 'NOT POSSIBLE'
+    answerDiscount = .5
+    answerNoise = .4
+    answerLivingReward = -.5
+    return answerDiscount, answerNoise, answerLivingReward
+    # If not possible, return 'NOT POSSIBLE'
 
 def question3c():
-  #: Small negative living Reward
-  answerDiscount = 0.9
-  answerNoise = 0.2
-  answerLivingReward = -1.0
-  return answerDiscount, answerNoise, answerLivingReward
-  # If not possible, return 'NOT POSSIBLE'
+    answerDiscount = .9
+    answerNoise = 0
+    answerLivingReward = -3
+    return answerDiscount, answerNoise, answerLivingReward
+    # If not possible, return 'NOT POSSIBLE'
 
 def question3d():
-  #: Default value will do.
-  answerDiscount = 0.9
-  answerNoise = 0.2
-  answerLivingReward = 0.0
-  return answerDiscount, answerNoise, answerLivingReward
-  # If not possible, return 'NOT POSSIBLE'
+    answerDiscount = .8
+    answerNoise = .4
+    answerLivingReward = -.4
+    return answerDiscount, answerNoise, answerLivingReward
+    # If not possible, return 'NOT POSSIBLE'
 
 def question3e():
-  #: Heavily reward living
-  answerDiscount = 0.9
-  answerNoise = 0.2
-  answerLivingReward = 10.0
-  return answerDiscount, answerNoise, answerLivingReward
-  # If not possible, return 'NOT POSSIBLE'
+    answerDiscount = .5
+    answerNoise = .5
+    answerLivingReward = -.8
+    return answerDiscount, answerNoise, answerLivingReward
+    # If not possible, return 'NOT POSSIBLE'
 
 def question6():
-  # answerEpsilon = None
-  # answerLearningRate = None
-  # return answerEpsilon, answerLearningRate
-  # If not possible, return 'NOT POSSIBLE'
+  answerEpsilon = 0.5
+  answerLearningRate = None
+  # There is no way to generate a better policy than the q-learners.
+  """ YOUR CODE HERE """
   return 'NOT POSSIBLE'
+  """ END CODE """
+  return answerEpsilon, answerLearningRate
+
 
 if __name__ == '__main__':
     print('Answers to analysis questions:')

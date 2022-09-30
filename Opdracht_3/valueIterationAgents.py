@@ -68,7 +68,6 @@ class ValueIterationAgent(ValueEstimationAgent):
             Q_Average = Q_Average + pair[1] * (self.mdp.getReward(state, action, pair[0]) +\
                                                       self.discount * self.getValue(pair[0]))
         return Q_Average
-        util.raiseNotDefined()
 
     def computeActionFromValues(self, state):
         """
@@ -93,7 +92,6 @@ class ValueIterationAgent(ValueEstimationAgent):
             if valueOfAction == maxValue:
                 bestActions.append(action)
         return random.choice(bestActions)
-        util.raiseNotDefined()
 
     def getPolicy(self, state):
         return self.computeActionFromValues(state)
