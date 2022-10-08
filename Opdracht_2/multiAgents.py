@@ -285,30 +285,33 @@ def betterEvaluationFunction(current_game_state):
     DESCRIPTION: <mart schreef hier wat, zodat je weet wat ik heb gedaan>
   """
   "*** YOUR CODE HERE ***"    
-  INF = 1e6    
 
+  # Handige functies
   foodPos = current_game_state.getFood().asList()
   ghostPos = current_game_state.getGhostPositions()
   current_position = current_game_state.getPacmanPosition()
-  capsules = current_game_state.getCapsules()
 
+  # Opzich wel handige distance / scores.
   minFoodDis, minGhostDis, minCapDis, total_score = 100, 100, 100, 0
+  
+  # Bereken voor elke food in foodpos de minimale food distance. En daarnaast de totale score
   for food in foodPos:
     minFoodDis = min(minFoodDis, manhattan_distance(food, current_position))
     total_score += manhattan_distance(food, current_position)
+  
+  # Bereken voor elke ghost in ghostpos de minimale distance van de ghost.
   for ghost in ghostPos:
     minGhostDis = min(minGhostDis, manhattan_distance(ghost, current_position))
-  # for cap in capsules:
-    # minCapDis = min(minCapDis, manhattan_distance(cap, current_position))
 
-  if minGhostDis < 3: score = -1e5 - minFoodDis - total_score
-  elif len(foodPos) == 0: score = INF + minGhostDis
+  # Indien de minimale ghost distance kleiner dan 3 is (Erg dicht bij dus). Geef de agent een slechtere score
+  if minGhostDis < 3: score = -100000 - minFoodDis - total_score
+  # Indien alle food op is. Geef de agent een hoge score + een bonus voor afstand van de dichtsbijzijnde ghost
+  elif len(foodPos) == 0: score = 1000000 + minGhostDis
+  # Anders geef de bijopgetelde waarde van alle scores mee. De 1980 heb ik zelf aangepast op wat het beste resultaat gaf.
+  # Helaas is mijn gemiddelde score net onder de 1000...
   else:
-    score = -50 * minFoodDis - total_score + minGhostDis * 2 - len(foodPos) * 2000
+    score = -50 * minFoodDis - total_score + minGhostDis * 2 - len(foodPos) * 1980
 
-  # if len(foodPos) < 3: print 'Debug: ', score, 'food:', len(foodPos), 'current_position:', current_position,
-  # if len(foodPos) > 0: print 'first food:', foodPos[0]
-  # else: print ' '
   return score
 
 # Abbreviation
