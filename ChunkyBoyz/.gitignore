@@ -1,0 +1,7 @@
+score
+log.txt
+*.secrets
+*.zip
+students/*
+!students/__init__.py
+results/*

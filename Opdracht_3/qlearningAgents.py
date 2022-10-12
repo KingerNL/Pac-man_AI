@@ -59,10 +59,9 @@ class QLearningAgent(ReinforcementAgent):
 
         if legal_actions:
             return max([self.getQValue(state, a) for a in legal_actions])
-
         else:
             return 0.0
-                
+
     def computeActionFromQValues(self, state):
         legal_actions = self.getLegalActions(state)
 
@@ -115,7 +114,6 @@ class QLearningAgent(ReinforcementAgent):
             return 0.0
         return self.computeValueFromQValues(state)
 
-
 class PacmanQAgent(QLearningAgent):
     "Exactly the same as QLearningAgent, but with different default parameters"
 
@@ -146,7 +144,6 @@ class PacmanQAgent(QLearningAgent):
         action = QLearningAgent.getAction(self,state)
         self.doAction(state,action)
         return action
-
 
 class ApproximateQAgent(PacmanQAgent):
     """

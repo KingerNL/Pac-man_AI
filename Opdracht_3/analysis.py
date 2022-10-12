@@ -59,15 +59,15 @@ def question3e():
     # If not possible, return 'NOT POSSIBLE'
 
 def question6():
-  answerEpsilon = 0.5
+  answerEpsilon = None
   answerLearningRate = None
   # There is no way to generate a better policy than the q-learners.
   """ YOUR CODE HERE """
-  return 'NOT POSSIBLE'
-  """ END CODE """
-  return answerEpsilon, answerLearningRate
-
-
+  if (answerEpsilon == None and answerLearningRate == None):
+    return 'NOT POSSIBLE'
+  else:
+    return answerEpsilon, answerLearningRate
+  
 if __name__ == '__main__':
     print('Answers to analysis questions:')
     import analysis
