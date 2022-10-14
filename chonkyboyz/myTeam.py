@@ -16,6 +16,7 @@ from captureAgents import CaptureAgent
 import random, time, util
 from game import Directions
 import game
+import numpy as np
 
 #################
 # Team creation #
@@ -45,13 +46,9 @@ class ChonkyBoys(CaptureAgent):
     My_Team_Color = gameState.isOnRedTeam(self.index)
     if (My_Team_Color == True): print("We zijn team Rood!")
     if (My_Team_Color == False): print("We zijn team Blauw!!!")
-    
-    # Maak een map van de pac-man env.
-    for x in range(6):
-      print("hi")
-    # All_Capsules = self.getCapsules(self.index)
-    # print(All_Capsules)
-    
+        
+    grid = gameState.getCapsules()
+    print(grid)
     CaptureAgent.registerInitialState(self, gameState)
 
     '''
@@ -66,7 +63,8 @@ class ChonkyBoys(CaptureAgent):
     
     
     # Get the state of de Agent,
-    print(gameState.getAgentState(self.index))
+    # print(gameState.getAgentState(self.index))
+    # print(gameState.getLegalActions(self.index))
     actions = gameState.getLegalActions(self.index)
 
     # Take action

@@ -58,7 +58,8 @@ GHOST_SHAPE = [
 GHOST_SIZE = 0.65
 SCARED_COLOR = formatColor(1,1,1)
 
-GHOST_VEC_COLORS = map(colorToVector, GHOST_COLORS)
+#GHOST_VEC_COLORS = map(colorToVector, GHOST_COLORS)
+GHOST_VEC_COLORS = [colorToVector(c) for c in GHOST_COLORS]
 
 PACMAN_COLOR = formatColor(255.0/255.0,255.0/255.0,61.0/255)
 PACMAN_SCALE = 0.5
@@ -105,15 +106,34 @@ class InfoPane:
     return x,y
 
   def drawPane(self):
-    self.scoreText = text( self.toScreen(0, 0  ), self.textColor, self._infoString(0,1200), "Consolas", self.fontSize, "bold")
-    self.redText = text( self.toScreen(230, 0  ), TEAM_COLORS[0], self._redScoreString(), "Consolas", self.fontSize, "bold")
-    self.redText = text( self.toScreen(690, 0  ), TEAM_COLORS[1], self._blueScoreString(), "Consolas", self.fontSize, "bold")
+
+    # Add the SCORE: xxx     TIME: xxx banner
+    self.scoreText = text(self.toScreen(0, 0), self.textColor, self._infoString(0, 1200), "Consolas", self.fontSize,
+                          "bold")
+
+    # Add red team name on the left (besides SCORE:) with color TEAM_COLORS[0] (red)
+    self.redText = text(self.toScreen(230, 0), TEAM_COLORS[0], self._redScoreString(), "Consolas", self.fontSize,
+                         "bold")
+
+    # Add the "vs" word on the right of the red team name
+    self.redText = text(self.toScreen(475, 0), self.textColor, "vs", "Consolas", self.fontSize, "bold")
+
+    # Add red team name on the left (besides SCORE:) with color TEAM_COLORS[1] (blue)
+    self.redText = text(self.toScreen(530, 0), TEAM_COLORS[1], self._blueScoreString(), "Consolas", self.fontSize,
+                         "bold")
+    #
+    # self.scoreText = text( self.toScreen(0, 0  ), self.textColor, self._infoString(0,1200), "Consolas", self.fontSize, "bold")
+    # self.redText = text( self.toScreen(230, 0  ), TEAM_COLORS[0], self._redScoreString(), "Consolas", self.fontSize, "bold")
+    # self.redText = text( self.toScreen(690, 0  ), TEAM_COLORS[1], self._blueScoreString(), "Consolas", self.fontSize, "bold")
 
   def _redScoreString(self):
-    return "RED: % 10s "%(self.redTeam[:12])
+    # return "RED: % 10s "%(self.redTeam[:12])
+    return "%12s "%(self.redTeam[:12])
+
 
   def _blueScoreString(self):
-    return "BLUE: % 10s "%(self.blueTeam[:12])
+    # return "BLUE: % 10s "%(self.blueTeam[:12])
+    return "%-12s "%(self.blueTeam[:12])
 
   def updateRedText(self, score):
     changeText(self.redText, self._redScoreString())
@@ -135,7 +155,7 @@ class InfoPane:
       self.ghostDistanceText.append(t)
 
   def _infoString(self, score, timeleft):
-    return "SCORE: % 4d                         TIME:  % 4d" % (score, timeleft)
+    return "SCORE: %2d                               TIME: %4d" % (score, timeleft)
 
   def updateScore(self, score, timeleft):
     changeText(self.scoreText, self._infoString(score,timeleft))
@@ -172,7 +192,7 @@ class InfoPane:
 
 
 class PacmanGraphics:
-  def __init__(self, redTeam, blueTeam, zoom=1.0, frameTime=0.0, capture=False):
+  def __init__(self, redTeam, redName, blueTeam, blueName, zoom=1.0, frameTime=0.0, capture=False):
     self.expandedCells = []
     self.have_window = 0
     self.currentGhostImages = {}
@@ -183,6 +203,13 @@ class PacmanGraphics:
     self.frameTime = frameTime
     self.redTeam = redTeam
     self.blueTeam = blueTeam
+
+    self.redName = redTeam
+    if redName:
+      self.redName = redName
+    self.blueName = blueTeam
+    if blueName:
+      self.blueName = blueName
 
   def initialize(self, state, isBlue = False):
     self.isBlue = isBlue
@@ -202,7 +229,7 @@ class PacmanGraphics:
     self.width = layout.width
     self.height = layout.height
     self.make_window(self.width, self.height)
-    self.infoPane = InfoPane(layout, self.gridSize, self.redTeam, self.blueTeam)
+    self.infoPane = InfoPane(layout, self.gridSize, self.redName, self.blueName)
     self.currentState = layout
 
   def drawDistributions(self, state):
@@ -332,7 +359,7 @@ class PacmanGraphics:
 
   def animatePacman(self, pacman, prevPacman, image):
     if self.frameTime < 0:
-      print 'Press any key to step forward, "q" to play'
+      print('Press any key to step forward, "q" to play')
       keys = wait_for_keys()
       if 'q' in keys:
         self.frameTime = 0.1

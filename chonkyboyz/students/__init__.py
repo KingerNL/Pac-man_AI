@@ -34,7 +34,7 @@ for _filename in _pyfiles:
     if _dup_id >= _duplicate_id.get(_canonical_name, _ORIGINAL_ID):
         if _dup_id != _ORIGINAL_ID:
             try:
-                __os.remove(_canonical_name)
+                __os.remove(__path.join(__module_path, _canonical_name))
             except OSError:
                 pass
             __os.rename(__path.join(__module_path, _filename),

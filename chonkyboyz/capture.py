@@ -42,11 +42,6 @@ Capture.py holds the logic for Pacman capture the flag.
           you use to set up the game, then starting up a new game, along with
           linking in all the external parts (agent functions, graphics).
           Check this section out to see all the options available to you.
-
-To play your first game, type 'python capture.py' from the command line.
-The keys are
-  P1: 'a', 's', 'd', and 'w' to move
-  P2: 'l', ';', ',' and 'p' to move
 """
 from game import GameStateData
 from game import Game

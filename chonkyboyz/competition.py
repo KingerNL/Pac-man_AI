@@ -15,9 +15,12 @@ import multiprocessing
 import os
 import pickle
 import random
+import shutil
 import smtplib
 import sys
-import urllib2
+import tempfile
+import time
+import urllib.request as request
 import zipfile
 from contextlib import contextmanager
 from email.mime.application import MIMEApplication
@@ -31,13 +34,14 @@ LOG_FILENAME = "log.txt"
 logging.basicConfig(filename=LOG_FILENAME,
         filemode="w+",
         format="%(asctime)s %(module)s %(levelname)s %(message)s",
-        level=logging.INFO)
+        level=logging.DEBUG)
 
 SECRETS_KEYS = [
         ('course_name', "Course name"),
         ('host', "SMTP host"),
         ('port', "SMTP port"),
         ('user', "SMTP username"),
+        ('sender', "Sender email address"),
         ('password', "SMTP password"),
         ('name', "Display name"),
         ('instructor_mail', "Comma-separated list of instructor email addresses"),
@@ -49,17 +53,82 @@ TIMESTAMP_FMT = "%Y-%m-%d.%H-%M-%S"
 # GMail has a attachment size limit of 24 MB, in bytes.
 ATTACHMENT_SIZE_LIMIT = 24e6
 
+
+class LogAsStream:
+    """
+    Change a log into a streamable object.
+
+    This is a utility for @contextmanager.
+    """
+    def __init__(self, log_name, log_level, prefix=''):
+        self._logger = logging.getLogger(log_name)
+        self._level = log_level
+        self._prefix = prefix or ''
+
+    def write(self, buf):
+        lines = buf.rstrip().splitlines()
+        for line in lines:
+            self._logger.log(self._level, self._prefix + line.rstrip())
+
+
 @contextmanager
+def replace_stdout(stream):
+    """
+    Temporarily swap another streamable object for stdout.
+    """
+    old_stdout, sys.stdout = sys.stdout, stream
+    try:
+        yield stream
+    finally:
+        sys.stdout = old_stdout
+
+
+@contextmanager
+def replace_stderr(stream):
+    """
+    Temporarily swap another streamable object for stderr.
+    """
+    old_stderr, sys.stderr = sys.stderr, stream
+    try:
+        yield stream
+    finally:
+        sys.stderr = old_stderr
+
+
+def log_stdout(prefix=''):
+    """
+    Temporarily let the output of print() be logged.
+    """
+    return replace_stdout(LogAsStream('STDOUT', logging.DEBUG, prefix=prefix))
+
+def log_stderr(prefix=''):
+    """
+    """
+    return replace_stderr(LogAsStream('STDERR', logging.WARN, prefix=prefix))
+
+
 def silence_stdout():
     """
     Temporarily set the output of print() to nothing.
     """
-    new_target = open(os.devnull, 'w')
-    old_target, sys.stdout = sys.stdout, new_target
-    try:
-        yield new_target
-    finally:
-        sys.stdout = old_target
+    return replace_stdout(open(os.devnull, 'w'))
+
+
+def mute_agents(agents):
+    """
+    When agents want to print(), do nothing instead.
+    """
+    def silencer(fn):
+        def silenced(*args, **kwargs):
+            with silence_stdout():
+                return fn(*args, **kwargs)
+        return silenced
+    muted_agents = []
+    for agent in agents:
+        agent.registerInitialState = silencer(agent.registerInitialState)
+        agent.chooseAction = silencer(agent.chooseAction)
+        muted_agents.append(agent)
+    return muted_agents
 
 
 def create_secrets(secrets_file=DEFAULT_SECRETS):
@@ -78,15 +147,15 @@ def create_secrets(secrets_file=DEFAULT_SECRETS):
 
     secrets = {}
     try:
-        with open(secrets_file, 'r') as f:
+        with open(secrets_file, 'rb') as f:
             secrets = pickle.load(f)
     except:
         pass
     for key, prompt in SECRETS_KEYS:
         if key in secrets:
             prompt += " (now: \"{}\")".format(secrets[key])
-        secrets[key] = raw_input(prompt + ": ").strip() or secrets.get(key, '')
-    with open(secrets_file, 'w') as f:
+        secrets[key] = input(prompt + ": ").strip() or secrets.get(key, '')
+    with open(secrets_file, 'wb') as f:
         pickle.dump(secrets, f)
 
 
@@ -95,7 +164,7 @@ def load_secrets(secrets_file=DEFAULT_SECRETS):
     Load data from a secrets file and check if all required fields are
     present.
     """
-    with open(secrets_file, 'r') as f:
+    with open(secrets_file, 'rb') as f:
         secrets = pickle.load(f)
     missing = []
     for key, _ in SECRETS_KEYS:
@@ -135,9 +204,92 @@ def check_is_file(value):
     argparse helper function to make sure value is a path to an exisiting
     file.
     """
-    if not os.path.isfile(value):
+    if not os.path.isfile(value) and value is not DEFAULT_SECRETS:
         raise argparse.ArgumentTypeError("{} is not a file name".format(value))
     return value
+
+
+def test_mail_settings(secrets_file=DEFAULT_SECRETS):
+    """
+    Attempts to send a test email.
+    """
+    try:
+        logging.debug("## Starting test_mail.")
+        logging.debug("Loading secrets file.")
+        secrets = load_secrets(secrets_file)
+        logging.debug("... Done.")
+
+        logging.debug("Loading students modules for their email addresses.")
+        logging.debug("... import students")
+        import students
+        logging.debug("... get_student_modules")
+        student_modules = get_student_modules(students)
+        logging.debug("... analyse_student_modules")
+        email_addresses, agent_factories, disqualified_teams = analyse_student_modules(student_modules)
+        logging.debug("... Done!")
+
+        # Make the results of analyse_student_modules human-readable
+        msg_data = []
+        if email_addresses:
+            addresses = ', '.join(email_addresses)
+            msg_data.append("- I could email these students (not doing it though): {}".format(addresses))
+        else:
+            msg_data.append("- No student email addresses found.")
+        if agent_factories:
+            teams = ', '.join(agent_factories.keys())
+            msg_data.append("- These teams qualified: {}".format(teams))
+        else:
+            msg_data.append("- No qualified teams.")
+
+        if disqualified_teams:
+            teams = ', '.join(disqualified_teams.keys())
+            msg_data.append("- These teams are disqualified: {}".format(teams))
+        else:
+            msg_data.append("- No disqualified teams.")
+        for m in msg_data:
+            logging.info(m)
+        msg_data = "\n".join(msg_data)
+
+        # Building the email message.
+        logging.debug("Sending the test message")
+        logging.debug("... building the message")
+        sender = "{name} <{sender}>".format(**secrets)
+        instructor_mail = secrets['instructor_mail'].split(',')
+        receivers = list(instructor_mail)
+        to_mail = ', '.join(list(map(lambda s: "<{}>".format(s),
+                                     instructor_mail)))
+        msg = MIMEMultipart()
+        msg['From'] = sender
+        msg['To'] = to_mail
+        msg['Date'] = email.utils.formatdate(localtime=True)
+        msg['Subject'] = "[{}] Test message, please ignore".format(secrets['course_name'])
+        msg.attach(MIMEText("""Hi,
+
+This is an automatically generated test message.  It tests the server settings of the secrets file , just to be sure we can send the results to our participating students.
+
+A little bit of info about the students' hand-ins:
+{msg_data}
+
+Best,
+AI Capture the Flag Competition Bot"""))
+        message = msg.as_string().format(
+                sender=sender, to=to_mail,
+                course_name=secrets['course_name'],
+                msg_data=msg_data)
+        logging.debug("... connecting to the SMTP server")
+        smtp = smtplib.SMTP(secrets['host'], secrets['port'])
+        smtp.starttls()
+        smtp.login(secrets['user'], secrets['password'])
+        logging.debug("... sending the message")
+        smtp.sendmail(sender, receivers, message)
+        logging.debug("... disconnecting from the SMTP server")
+        smtp.quit()
+        logging.debug("... Done!")
+
+        logging.debug("Done!")
+    except Exception as e:
+        logging.error(str(e))
+        print(e)
 
 
 def parse_arguments():
@@ -168,7 +320,7 @@ def parse_arguments():
             action="store_true",
             help="Edit or create the secrets file. No competition is played.")
     parser.add_argument("-T", "--threads", dest="threads",
-            type=check_positive_or_zero, default=multiprocessing.cpu_count(),
+            type=check_positive_or_zero, default=multiprocessing.cpu_count()-1,
             help="""Number of threads used for running matches.""")
 
     # capture.py-specific arguments.
@@ -205,6 +357,10 @@ def parse_arguments():
             type=check_is_file, default=DEFAULT_SECRETS,
             help="File containing the 'secret' infomation.")
 
+    parser.add_argument("--testmail", dest="test_mail",
+                        action="store_true", default=False,
+                        help="Only test mail server settings.")
+
     args = parser.parse_args()
 
     if args.display_type == "quiet":
@@ -215,14 +371,17 @@ def parse_arguments():
     else:
         args.display_fn = textDisplay.PacmanGraphics
 
-    if args.layout == "RANDOM":
-        args.layout_type = ("random", None)
-    elif args.layout.startswith("RANDOM"):
+    if args.layout.startswith("RANDOM") and len(args.layout) > 6:
+    #if args.layout == "RANDOM":
+    #    args.layout_type = ("random", None)
+    #elif args.layout.startswith("RANDOM"):
         seed = args.layout[6:]
         if seed.isdigit():
             seed = int(seed)
         args.layout_type = ("random", seed)
     else:
+        if args.layout == "RANDOM":
+            args.layout = getRandomLayout()
         l = layout.getLayout(args.layout)
         if l is None:
             raise Exception("The layout '{}' cannot be found in "
@@ -234,6 +393,19 @@ def parse_arguments():
 
     args.delay_step = 0
     return args
+
+
+def getRandomLayout():
+    layouts_dir = os.path.join(os.path.dirname(__file__), 'layouts')
+    layouts = list(filter(lambda f: not f.startswith('.'),
+                          os.listdir(layouts_dir)))
+    random_layout = random.choice(layouts)
+    # Strip extension, if present
+    name_elements = random_layout.split(os.extsep)
+    if name_elements[-1] == 'lay':
+        random_layout = os.extsep.join(name_elements[:-1])
+    return random_layout
+
 
 
 def update_arguments(args, red_name, red_agents, blue_name, blue_agents):
@@ -288,7 +460,29 @@ class Result:
         for member in dir(cls):
             if getattr(cls, member) == number:
                 return member
-        return "UNKNOWN"
+        raise RuntimeError("Unknown Result type: {}".format(number))
+
+    @classmethod
+    def from_points(cls, points, error=False):
+        r1 = cls.WIN
+        r2 = cls.LOST
+        if points < 0:
+            r1 = cls.LOST
+            r2 = cls.WIN
+        elif points > 0:
+            r1 = cls.WIN
+            r2 = cls.LOST
+        else:
+            r1 = cls.TIE
+            r2 = cls.TIE
+
+        if error:
+            if r1 != cls.WIN:
+                r1 = cls.ERROR
+            if r2 != cls.WIN:
+                r2 = cls.ERROR
+
+        return r1, r2
 
 
 class StudentError:
@@ -309,11 +503,29 @@ class Record:
     Stores the frequencies of a team's game outcomes.
     """
     def __init__(self, win=0, tie=0, lost=0, error=0, points=0):
-        self.win = win
-        self.tie = tie
-        self.lost = lost
-        self.error = error
+        self._counter = collections.Counter()
+        self._counter[Result.WIN] = win
+        self._counter[Result.TIE] = tie
+        self._counter[Result.LOST] = lost
+        self._counter[Result.ERROR] = error
         self.points = points
+
+
+    @property
+    def win(self):
+        return self._counter[Result.WIN]
+
+    @property
+    def tie(self):
+        return self._counter[Result.TIE]
+
+    @property
+    def lost(self):
+        return self._counter[Result.LOST]
+
+    @property
+    def error(self):
+        return self._counter[Result.ERROR]
 
     def score(self):
         """
@@ -322,34 +534,34 @@ class Record:
         The score is a sum product of the result frequencies with their
         corresponding score multipliers.
         """
-        return ((Result.WIN * self.win)
-                + (Result.TIE * self.tie)
-                + (Result.LOST * self.lost)
-                + (Result.ERROR * self.error))
+        return sum(map(lambda k: k * self._counter[k],
+            self._counter))
 
     def update(self, points, result=None):
         """
         Stores an occurance of a Result type.
         """
-        if result == Result.WIN or result is None and points > 0:
-            self.win += 1
-        elif result == Result.TIE or result is None and points == 0:
-            self.tie += 1
-        elif result == Result.LOST or result is None and points < 0:
-            self.lost += 1
-        elif result == Result.ERROR:
-            self.error += 1
-        else:
-            raise RuntimeError("Unknown result: {}".format(result))
+        if result is None:
+            result, _ = Result.from_points(points)
+        # See if result is a member of Result
+        Result.get_name(result)
+        self._counter[result] += 1
         self.points += points
 
     def __repr__(self):
         """
         Gives a human-readable representation of Record.
         """
-        name = self.__class__.__name__
-        return ("{n}(win={r.win}, tie={r.tie}, lost={r.lost}, "
-                "error={r.error}, points={r.points})".format(n=name, r=self))
+        d = {
+                'name': self.__class__.__name__,
+                'win': self._counter[Result.WIN],
+                'tie': self._counter[Result.TIE],
+                'lost': self._counter[Result.LOST],
+                'error': self._counter[Result.ERROR],
+                'points': self.points
+        }
+        return ("{name}(win={win}, tie={tie}, lost={lost}, "
+                "error={error}, points={points})".format(**d))
 
     def __cmp__(self, other):
         """
@@ -357,9 +569,36 @@ class Record:
         """
         if type(self) != type(other):
             return -1
+        a = self.points
+        b = other.points
         if self.score() != other.score():
-            return cmp(self.score(), other.score())
-        return cmp(self.points, other.points)
+            a = self.score()
+            b = other.score()
+        return (a > b) - (a < b)
+
+    def __lt__(self, other):
+        """
+        Defines self < other.
+        """
+        return self.__cmp__(other) < 0
+
+    def __le__(self, other):
+        """
+        Defines self <= other.
+        """
+        return self.__cmp__(other) <= 0
+
+    def __gt__(self, other):
+        """
+        Defines self > other.
+        """
+        return self.__cmp__(other) > 0
+
+    def __ge__(self, other):
+        """
+        Defines self >= other.
+        """
+        return self.__cmp__(other) >= 0
 
     def __add__(self, other):
         """
@@ -369,17 +608,19 @@ class Record:
         if type(self) != type(other):
             raise TypeError("unsupported operand type(s) for +: '{}' and '{}'"
                     .format(self.__class__, other.__class__))
-        return self.__class__(win=self.win+other.win,
-                tie=self.tie+other.tie,
-                lost=self.lost+other.lost,
-                error=self.error+other.error,
-                points=self.points+other.points)
+        counter = self._counter + other._counter
+        points = self.points + other.points
+        return self.__class__(win=counter[Result.WIN],
+                tie=counter[Result.TIE],
+                lost=counter[Result.LOST],
+                error=counter[Result.ERROR],
+                points=points)
 
 
 class Scoreboard:
     def __init__(self):
         self.disqualified_teams = {}
-        self.participating_teams = {}
+        self._participating_teams = {}
         self.records = collections.defaultdict(
                 lambda: collections.defaultdict(Record))
         self._lock = multiprocessing.Lock()
@@ -402,21 +643,13 @@ class Scoreboard:
         values are the factory to create the team's agents.
         """
         with self._lock:
-            self.participating_teams.update(teams)
+            self._participating_teams.update(teams)
 
     def add_result(self, leftTeam, rightTeam, points,
             leftResult=None, rightResult=None):
         """
         Adds scores to the score board.
         """
-        if leftResult is None and rightResult is None:
-            logging.info("Adding result for {} vs {}: {}".format(
-                leftTeam, rightTeam, points))
-        else:
-            logging.info("Adding result for {} ({}) vs {} ({}): {}".format(
-                leftTeam, Result.get_name(leftResult),
-                rightTeam, Result.get_name(rightResult),
-                points))
         with self._lock:
             self.records[leftTeam][rightTeam].update(points, leftResult)
             self.records[rightTeam][leftTeam].update(-points, rightResult)
@@ -443,7 +676,7 @@ class Scoreboard:
             y = list(x)
             random.shuffle(y)
             return y
-        combinations = itertools.combinations(self.participating_teams.items(), 2)
+        combinations = itertools.combinations(self._participating_teams.items(), 2)
         queue = multiprocessing.Queue()
         for match in combinations:
             queue.put(_shuffled(match))
@@ -454,10 +687,15 @@ class Scoreboard:
         """
         Returns an alphabetically sorted list of team names.
         """
-        return sorted(list(self.participating_teams.keys()))
+        return sorted(list(self._participating_teams.keys()))
+
+    @property
+    def nongit_participants(self):
+        return sorted(list(filter(lambda x: not x.lower().startswith('[git]'),
+            self._participating_teams.keys())))
 
 
-def generate_html_report(scoreboard, report_file, courseName, timestamp_start, timestamp_finish, **args):
+def generate_html_report(scoreboard, report_file, courseName, timestamp_start, timestamp_finish, layout, **args):
     """
     Make an HTML document that will represent the score in scoreboard.
     """
@@ -465,6 +703,7 @@ def generate_html_report(scoreboard, report_file, courseName, timestamp_start, t
     fmt['courseName'] = courseName
     fmt['timestamp_start'] = timestamp_start
     fmt['timestamp_finish'] = timestamp_finish
+    fmt['layout'] = layout
     fmt['argv'] = sys.argv
 
     fmt['title'] = "{} Capture the Flag results of {:%d-%m-%Y}".format(courseName, timestamp_start)
@@ -598,6 +837,12 @@ competition scores, teams with more points collected will be ranked higher.
 {results}
 </table>""".format(**fmt)
 
+    log_contents = "".join(open(LOG_FILENAME, 'r').readlines())
+    # TODO: Track down where all NUL characters come from in the log
+    log_contents = log_contents.replace("\0", "")
+    fmt['log'] = """<h2>Log file</h2>
+    <pre>{}</pre>""".format(log_contents)
+
 
     with open(report_file, 'w') as f:
         f.write("""<!doctype html>
@@ -651,7 +896,8 @@ caption {{
 competition, part of the course {courseName}. The simulation
 started at {timestamp_start:%d-%m-%Y, %H:%M:%S}, and ended at
 {timestamp_finish:%d-%m-%Y, %H:%M:%S}.
-Running all simulations took {duration} time.</p>
+Running all simulations took {duration} time.  It was played on
+the <strong>{layout}</strong> map.</p>
 
 {disqualified_teams}
 
@@ -659,6 +905,7 @@ Running all simulations took {duration} time.</p>
 <!-- This competition has been run with the following arguments:
      {argv}
 -->
+{log}
 </body>
 </html>""".format(**fmt))
 
@@ -678,13 +925,32 @@ def download_student_data(secrets):
     used in this part of the code.  Do not share this link with students, as
     they enables them to look at other teams' code.
     """
+    # Download data from a predefined url, and store it as students.zip.
     url = secrets['download_url']
     if url.startswith('https://surfdrive') and not url.endswith('/download'):
         url += '/download'
-    response = urllib2.urlopen(url)
+    response = request.urlopen(url)
     with open('students.zip', 'wb') as f:
         f.write(response.read())
         logging.info("Downloading student data succesful.")
+
+    # If the download was succesful, delete the old data.
+    with tempfile.TemporaryDirectory(prefix="pacman") as tmpdirname:
+        has_init = False
+        src_dir = os.path.abspath('students')
+        init_name = '__init__.py'
+        init_src = os.path.join(src_dir, '__init__.py')
+        init_dest = os.path.join(tmpdirname, init_name)
+
+        if os.path.isfile(init_src):
+            has_init = True
+            shutil.move(init_src, tmpdirname)
+        shutil.rmtree(src_dir)
+        os.makedirs(src_dir)
+        if has_init:
+            shutil.move(init_dest, src_dir)
+
+    # Unpack the downloaded zip file.
     zf = zipfile.ZipFile('students.zip')
     for info in zf.infolist():
         filename = info.filename
@@ -751,11 +1017,12 @@ def analyse_student_modules(student_modules):
                     team_red = createTeam(0, 1, True)
                     team_blue = createTeam(2, 3, False)
             except:
-                arg_spec = inspect.getargspec(createTeam)
-                nondefault_args = len(arg_spec.args) - len(arg_spec.defaults)
-                if len(arg_spec.args) < 3:
+                arg_spec = inspect.getfullargspec(createTeam)
+                all_args = len(arg_spec.args)
+                nondefault_args = all_args - len(arg_spec.defaults)
+                if all_args < 3:
                     error = StudentError.CreateTeamTooFewArgs
-                elif len(arg_spec.args) - len(arg_spec.defaults) > 3:
+                elif nondefault_args > 3:
                     error = StudentError.CreateTeamTooManyNondefaults
                 else:
                     error = StudentError.CreateTeamRuntime
@@ -798,7 +1065,7 @@ def select_file(directory, extension):
         fmt = "{{:{}d}}.  {{}}".format(padding)
         for i, f in enumerate(files):
             print(fmt.format(i, f))
-        file_index = int(raw_input("Choose your zip to upload: "))
+        file_index = int(input("Choose your zip to upload: "))
         if file_index < 0 or file_index >= len(files):
             raise IndexError("Your input i should be 0 <= i < {}".format(len(files)))
         filename = files[file_index]
@@ -815,7 +1082,7 @@ def zip_results(output_dir, remove_src=False):
     for f in os.listdir(output_dir):
         full_name = os.path.join(output_dir, f)
         archive_name = os.path.join(archive_dir, f)
-        zf.write(os.path.join(output_dir, f), archive_name)
+        zf.write(full_name, archive_name)
     zf.close()
 
     if remove_src:
@@ -826,9 +1093,9 @@ def zip_results(output_dir, remove_src=False):
     return output_dir + ".zip"
 
 
-class MethodRequest(urllib2.Request):
+class MethodRequest(request.Request):
     """
-    Enables urllib2.Request with other HTTP methods than GET or PUT.
+    Enables request.Request with other HTTP methods than GET or PUT.
 
     Copied from https://gist.github.com/logic/2715756
     """
@@ -838,12 +1105,12 @@ class MethodRequest(urllib2.Request):
             del kwargs['method']
         else:
             self._method = None
-        return urllib2.Request.__init__(self, *args, **kwargs)
+        return request.Request.__init__(self, *args, **kwargs)
 
     def get_method(self, *args, **kwargs):
         if self._method is not None:
             return self._method
-        return urllib2.Request.get_method(self, *args, **kwargs)
+        return request.Request.get_method(self, *args, **kwargs)
 
 
 def upload_file(filename, remove_local=False):
@@ -859,7 +1126,7 @@ def upload_file(filename, remove_local=False):
             'Content-length': filesize}
     with open(filename, 'r') as f:
         request = MethodRequest(url, f, headers, method='PUT')
-        response = urllib2.urlopen(request)
+        response = request.urlopen(request)
     upload_url = response.read()
     logging.info("Uploaded file is available at {}".format(upload_url))
 
@@ -879,7 +1146,7 @@ def notify_students_by_mail(email_addresses, timestamp, results_file, secrets):
 
     Partially based on https://stackoverflow.com/a/3363254
     """
-    sender = "{name} <{user}>".format(**secrets)
+    sender = "{name} <{sender}>".format(**secrets)
     instructor_mail = secrets['instructor_mail'].split(',')
     receivers = list(email_addresses) + instructor_mail
     to_mail = ', '.join(list(map(lambda s: "<{}>".format(s), instructor_mail)))
@@ -893,9 +1160,10 @@ def notify_students_by_mail(email_addresses, timestamp, results_file, secrets):
 
     if os.stat(results_file).st_size < ATTACHMENT_SIZE_LIMIT:
         logging.info("Trying to send results file as attachment.")
-        with open(attachment, 'rb') as data:
-            part = MIMEApplication(data.read(), Name=attachm_name)
-        part['Content-Disposition'] = 'attachment; filename="{}"'.format(attachm_name)
+        basename = os.path.basename(results_file)
+        with open(results_file, 'rb') as data:
+            part = MIMEApplication(data.read(), Name=basename)
+        part['Content-Disposition'] = 'attachment; filename="{}"'.format(basename)
         msg.attach(part)
         extra_text = "The results are attached."
     else:
@@ -911,7 +1179,7 @@ Best,
 AI Capture the Flag Competition Bot"""))
     message = msg.as_string().format(
             sender=sender, to=to_mail,
-            course=secrets['course_name'], time=timestamp,
+            course_name=secrets['course_name'], time=timestamp,
             extra_text=extra_text)
     smtp = smtplib.SMTP(secrets['host'], secrets['port'])
     smtp.starttls()
@@ -920,7 +1188,7 @@ AI Capture the Flag Competition Bot"""))
     smtp.quit()
 
 
-def run_match(args, output_dir, match_queue, results):
+def run_match(runner_id, args, output_dir, match_queue, results, is_done):
     """
     Worker for multithreading, runs a single match at a time.
 
@@ -928,10 +1196,11 @@ def run_match(args, output_dir, match_queue, results):
     for the matches in match_queue, a multiprocessing.Queue.  Results of
     capture.runGames are put into results, another multiprocessing.Queue.
     """
-    while True:
+    while not match_queue.empty():
         try:
+            matchno = match_queue.qsize()
             (red_name, red_factory), (blue_name, blue_factory) = match_queue.get(timeout=1)
-            logging.info("Playing {} vs {}".format(red_name, blue_name))
+            logging.info("Playing match {}: {} vs {}".format(matchno, red_name, blue_name))
             red_result = Result.WIN
             blue_result = Result.WIN
 
@@ -943,63 +1212,65 @@ def run_match(args, output_dir, match_queue, results):
             blue_agents = None
             try:
                 with silence_stdout():
-                    red_agents = red_factory(0, 2, True, **args.agentArgs)
+                    red_agents = mute_agents(red_factory(0, 2, True,
+                        **args.agentArgs))
             except:
                 red_result = Result.ERROR
             try:
                 with silence_stdout():
-                    blue_agents = blue_factory(1, 3, False, **args.agentArgs)
+                    blue_agents = mute_agents(blue_factory(1, 3, False,
+                        **args.agentArgs))
             except:
                 blue_result = Result.ERROR
 
             if Result.ERROR in (red_result, blue_result):
-                err_msg = "An error occured during {}'s createTeam"
+                err_msg = "Match {}: An error occured during {}'s createTeam"
                 if red_result == Result.ERROR:
-                    logging.info(err_msg.format(red_name))
+                    logging.error(err_msg.format(matchno, red_name))
                 if blue_result == Result.ERROR:
-                    logging.info(err_msg.format(blue_name))
+                    logging.error(err_msg.format(matchno, blue_name))
                 logging.info("{} vs {} ended in {}-{} with {} pts".format(
-                    red_name, blue_name, red_result, blue_result, 0))
+                    red_name, blue_name,
+                    Result.get_name(red_result), Result.get_name(blue_result),
+                    0))
                 for _ in range(args.numGames):
                     results.put((red_name, blue_name, 0, red_result, blue_result))
                 continue
 
             # Play the game!
             _args = update_arguments(args, red_name, red_agents, blue_name, blue_agents)
-            with silence_stdout():
-                games = capture.runGames(**_args)
+            log_prefix = "{} ({} vs {}): ".format(matchno, red_name, blue_name)
+            with tempfile.TemporaryDirectory(prefix="pacman-{}-{}-{}-".format(matchno, red_name, blue_name)) as tmpdirname:
+                curdir = os.path.abspath(os.curdir)
+                with log_stdout(prefix=log_prefix):
+                    with log_stderr(prefix=log_prefix):
+                        os.chdir(tmpdirname)
+                        games = capture.runGames(**_args)
+                        os.chdir(curdir)
 
-            # Update the global score card.
-            points = [(game.state.data.score, game.agentCrashed or game.agentTimeout)
-                    for game in games]
+                # Update the global score card.
+                points = [(game.state.data.score, game.agentCrashed or game.agentTimeout)
+                        for game in games]
 
-            for point, error in points:
-                if error:
-                    if point < 0:
-                        red_result = Result.ERROR
-                        blue_result = Result.WIN
-                    elif point > 0:
-                        red_result = Result.WIN
-                        blue_result = Result.ERROR
+                for point, error in points:
+                    red_result, blue_result = Result.from_points(point, error)
                     logging.info("{} vs {} ended in {}-{} with {} pts".format(
-                        red_name, blue_name, red_result, blue_result, 0))
-                    results.put((red_name, blue_name, 0,
-                        red_result, blue_result))
-                else:
-                    logging.info("{} vs {} ended with {} pts".format(
-                        red_name, blue_name, red_result, blue_result, point))
-                    results.put((red_name, blue_name, point))
+                        red_name, blue_name,
+                        Result.get_name(red_result), Result.get_name(blue_result),
+                        0))
+                    results.put((red_name, blue_name, point, red_result, blue_result))
 
-            # Move all replay-% files to results/red_name-blue_name-%d
-            match_name = os.path.join(output_dir, "{}-{}".format(red_name, blue_name))
-            replay_prefix = 'replay'
-            replay_files = filter(lambda s: s.startswith(replay_prefix + '-'),
-                    os.listdir('.'))
-            for filename in replay_files:
-                new_name = match_name + filename[len(replay_prefix):]
-                os.rename(filename, new_name)
+                # Move all replay-% files to results/red_name-blue_name-%d
+                match_name = os.path.join(output_dir, "{}-{}".format(red_name, blue_name))
+                replay_prefix = 'replay'
+                replay_files = filter(lambda s: s.startswith(replay_prefix + '-'),
+                        os.listdir(tmpdirname))
+                for filename in replay_files:
+                    new_name = match_name + filename[len(replay_prefix):]
+                    shutil.move(os.path.join(tmpdirname, filename), os.path.join(curdir, new_name))
         except multiprocessing.queues.Empty:
             break
+    is_done.put(runner_id)
 
 def run_competition(args):
     """
@@ -1024,16 +1295,15 @@ def run_competition(args):
     scoreboard.disqualify(disqualified_on_import)
     student_modules = get_student_modules(students)
     email_addresses, agent_factories, disqualified_teams = analyse_student_modules(student_modules)
-    if args.no_play:
-        zip_name = select_file("results", ".zip")
-    else:
+    if not args.no_play:
         scoreboard.disqualify(disqualified_teams)
         scoreboard.register_participants(agent_factories)
 
         logging.info("Disqualified teams: {}".format(scoreboard.disqualified_teams.keys()))
         logging.info("Qualified: {}".format(scoreboard.participants))
-        if len(scoreboard.participants) < 2:
+        if len(scoreboard.nongit_participants) < 2:
             logging.info("Too few participating agents; no competition is run.")
+            return
 
         try:
             # Will raise OSError if this folder already exists, for example, from
@@ -1049,25 +1319,36 @@ def run_competition(args):
             pass
 
         matches = scoreboard.make_pairings()
-        match_runners = []
+        match_runners = {}
         results = multiprocessing.Queue()
-        for _ in range(args.threads):
+        is_done = multiprocessing.Queue()
+        if not args.no_mail:
+            logging.info("Emailing {} participants the results".format(len(email_addresses)))
+        logging.info("A total of {} matches will be played. Counting down".format(matches.qsize()))
+        for i in range(args.threads):
             p = multiprocessing.Process(target=run_match,
-                    args=(args, output_dir, matches, results))
-            match_runners.append(p)
+                    args=(i, args, output_dir, matches, results, is_done))
+            match_runners[i] = p
             p.start()
 
-        for p in match_runners:
-            p.join()
-
-        while not results.empty():
-            scoreboard.add_result(*results.get())
+        while match_runners:
+            if not is_done.empty():
+                name = is_done.get(timeout=1)
+                match_runners[name].join()
+                del match_runners[name]
+            # Periodically move results to scoreboard, so that results is not overflowing.
+            while not results.empty():
+                scoreboard.add_result(*results.get())
+            time.sleep(0.1)
 
         args.timestamp_finish = datetime.datetime.now()
         report_file = os.path.join(output_dir, "report.html")
         generate_html_report(scoreboard, report_file, secrets['course_name'],
                 **vars(args))
         zip_name = zip_results(output_dir, remove_src=True)
+    else:
+        if not args.no_mail:
+            zip_name = select_file("results", ".zip")
 
     if not args.no_mail:
         if not email_addresses:
@@ -1081,10 +1362,10 @@ def run_competition(args):
 
 if __name__ == "__main__":
     args = parse_arguments()
-    run_competition(args)
-    sys.exit()
     if args.edit_secrets:
         create_secrets(args.secrets)
+    elif args.test_mail:
+        test_mail_settings(args.secrets)
     else:
         try:
             run_competition(args)
