@@ -1,23 +1,21 @@
 # qlearningAgents.py
 # ------------------
-# Licensing Information:  You are free to use or extend these projects for 
-# educational purposes provided that (1) you do not distribute or publish 
-# solutions, (2) you retain this notice, and (3) you provide clear 
-# attribution to UC Berkeley, including a link to 
-# http://inst.eecs.berkeley.edu/~cs188/pacman/pacman.html
+# Licensing Information:  You are free to use or extend these projects for
+# educational purposes provided that (1) you do not distribute or publish
+# solutions, (2) you retain this notice, and (3) you provide clear
+# attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
 # 
 # Attribution Information: The Pacman AI projects were developed at UC Berkeley.
-# The core projects and autograders were primarily created by John DeNero 
+# The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
-# Student side autograding was added by Brad Miller, Nick Hay, and 
+# Student side autograding was added by Brad Miller, Nick Hay, and
 # Pieter Abbeel (pabbeel@cs.berkeley.edu).
 
 
-from argparse import Action
 from game import *
 from learningAgents import ReinforcementAgent
 from featureExtractors import *
-from operator import add, mul
+
 import random,util,math
 
 class QLearningAgent(ReinforcementAgent):
@@ -43,76 +41,120 @@ class QLearningAgent(ReinforcementAgent):
     def __init__(self, **args):
         "You can initialize Q-values here..."
         ReinforcementAgent.__init__(self, **args)
-        #initialize dict-counter for holding: key = (state, action) val = value
-        self.qVals = util.Counter()
+
+        # Set up counter
+        self.QValue = util.Counter()
 
     def getQValue(self, state, action):
-        # get the value corresponding to Q(state, action)
-        # If Should return 0.0 if we never seen a state or (state,action) tuple
-        if self.qVals[(state, action)] == 0:
-            return 0.0
-        return self.qVals[(state, action)]
+        if self.QValue[state, action] == 0:
+          return 0
+        return self.QValue[state, action]
 
     def computeValueFromQValues(self, state):
-        
-        legal_actions = self.getLegalActions(state)
+        """
+          Returns max_action Q(state,action)
+          where the max is over legal actions.  Note that if
+          there are no legal actions, which is the case at the
+          terminal state, you should return a value of 0.0.
+        """
 
-        if legal_actions:
-            return max([self.getQValue(state, a) for a in legal_actions])
-        else:
-            return 0.0
+        # Get the legal actions
+        legal = self.getLegalActions(state)
+
+        # Return 0 if there are no legal actions
+        if len(legal) == 0:
+          return 0.0
+
+        # Set up variable that can be overwritten
+        maxQ = float('-inf')
+
+        # Loop over the legal actions
+        for action in legal:
+
+          # Overwrite if the score is better than the previously saved score
+          if self.getQValue(state, action) > maxQ:
+            maxQ = self.getQValue(state, action)
+        
+        # Return the best score
+        return maxQ
 
     def computeActionFromQValues(self, state):
-        legal_actions = self.getLegalActions(state)
+        """
+          Compute the best action to take in a state.  Note that if there
+          are no legal actions, which is the case at the terminal state,
+          you should return None.
+        """
 
-        if not legal_actions:
-            return None
+        # Call empty list to save best actions
+        best = []
 
-        action_QValue_pairs = [(a, self.getQValue(state, a)) for a in legal_actions]
-        max_pair = max(action_QValue_pairs, key=lambda x: x[1])
-        return max_pair[0]
-    
+        # Get legal actions
+        legal = self.getLegalActions(state)
+
+        # Set up variable that can be overwritten
+        maxQ = float('-inf')
+
+        # Loop over legal actions
+        for action in legal:
+
+          # Save best state and action if there is an improvement
+          if self.getQValue(state, action) > maxQ:
+            maxQ = self.getQValue(state, action)
+            best = [action]
+
+          # Add the action if the result is the same 
+          elif self.getQValue(state, action) == maxQ:
+            best.append(action)
+
+        # Choose random action out of the best options
+        return random.choice(best)
+
     def getAction(self, state):
-        legal_actions = self.getLegalActions(state)
-        random_action = util.flipCoin(self.epsilon)
+        """
+          Compute the action to take in the current state.  With
+          probability self.epsilon, we should take a random action and
+          take the best policy action otherwise.  Note that if there are
+          no legal actions, which is the case at the terminal state, you
+          should choose None as the action.
 
-        if not legal_actions:
-            return None
+          HINT: You might want to use util.flipCoin(prob)
+          HINT: To pick randomly from a list, use random.choice(list)
+        """
+        # Pick Action
+        legalActions = self.getLegalActions(state)
+        action = None
+        "*** YOUR CODE HERE ***"
 
-        if random_action:
-            return random.choice(legal_actions)
+        # Choose random action
+        if util.flipCoin(self.epsilon):
+          return random.choice(legalActions)
+        
+        # Compute action
         else:
-            return self.getPolicy(state)
+          return self.computeActionFromQValues(state)
 
     def update(self, state, action, nextState, reward):
-        #calculate Q(s,a)
-        oldValue = self.getQValue(state, action)
-        theOld = (1-self.alpha) * oldValue
-        theReward = self.alpha * reward
-        if not nextState:
-            self.qVals[(state, action)] = theOld + theReward
-        else:
-            theNextState = self.alpha * self.discount * self.getValue(nextState)
-            self.qVals[(state, action)] = theOld +theReward + theNextState
+        """
+          The parent class calls this to observe a
+          state = action => nextState and reward transition.
+          You should do your Q-Value update here
+
+          NOTE: You should never call this function,
+          it will be called on your behalf
+        """
+        # Start with the partial score, based out of the reward, the discount and the computed value
+        part = reward + self.discount * self.computeValueFromQValues(nextState)
+        dict_key = state, action
+
+        # Compute the final score
+        self.QValue[dict_key] = (1.0 - self.alpha) * self.getQValue(state, action) + self.alpha * part
 
     def getPolicy(self, state):
-        # Compute the best action to take in a state.  
-        # Note that if there are no legal actions, which is the case at the terminal state,
-        # you should return None.
-        actions = self.getLegalActions(state)
-        #return None if there are no actions from this state
-        if len(actions) == 0:
-            return None
         return self.computeActionFromQValues(state)
 
     def getValue(self, state):
-        # Note that if there are no legal actions, which is the case at the terminal state, 
-        # you should return a value of 0.0.
-        actions = self.getLegalActions(state)
-        #return None if there are no actions from this state
-        if len(actions) == 0:
-            return 0.0
         return self.computeValueFromQValues(state)
+
 
 class PacmanQAgent(QLearningAgent):
     "Exactly the same as QLearningAgent, but with different default parameters"
@@ -145,6 +187,7 @@ class PacmanQAgent(QLearningAgent):
         self.doAction(state,action)
         return action
 
+
 class ApproximateQAgent(PacmanQAgent):
     """
        ApproximateQLearningAgent
@@ -163,42 +206,61 @@ class ApproximateQAgent(PacmanQAgent):
 
     def getQValue(self, state, action):
         """
-        Should return Q(state,action) = w * featureVector
-        where * is the dotProduct operator
+          Should return Q(state,action) = w * featureVector
+          where * is the dotProduct operator
         """
-        """Description:
-            [Here we follow the formula:
-            Q(s,a) = SUM ( Wi * feature(s,a)) for all features]
-            """
-        """ YOUR CODE HERE """
-        q = 0
-        currentFeatures = self.featExtractor.getFeatures(state,action)
-        for feature in currentFeatures:
-            score = currentFeatures[feature]
-            q += self.weights[feature] * score
-        return q
-        # util.raiseNotDefined()
-        """ END CODE """
+        "*** YOUR CODE HERE ***"
+
+        # Get the features from the state and action
+        feat = self.featExtractor
+        features = feat.getFeatures(state, action)
+        QValue = 0
+
+        # Loop over all the feature keys
+        for f in features.keys():
+
+          # Add up all the weights multiplied by the corresponding features
+          QValue += self.weights[f] * features[f]
+        return QValue
 
     def update(self, state, action, nextState, reward):
         """
            Should update your weights based on transition
         """
-        #differece = reward + gamma*Q(s', a') - Q(s,a)
-        difference = reward + self.discount*self.computeValueFromQValues(nextState) - self.getQValue(state, action)
-        weights = self.getWeights()
-        #if weight vector is empty, initialize it to zero
-        if len(weights) == 0:
-            weights[(state,action)] = 0
+        "*** YOUR CODE HERE ***"
+
+        # Get the legal actions
+        next_action = self.getLegalActions(nextState)
+
+        # Set up a variable that can be overwritten
+        maxQ = float('-inf')
+
+        # Loop over the legal actions
+        for next in next_action:
+
+          # Overwrite if improvement
+          if self.getQValue(nextState, next) > maxQ:
+            maxQ = self.getQValue(nextState, next)
+
+        # If nothing happend, set to 0
+        if maxQ == float('-inf'):
+          maxQ = 0
+
+        # Compute the difference between the calculated score and the QValue calculated from the function
+        difference = (reward + (self.discount * maxQ)) - self.getQValue(state, action)
+
+        # Extract features
         features = self.featExtractor.getFeatures(state, action)
-        #iterate over features and multiply them by the learning rate (alpha) and the difference
-        for key in features.keys():
-            features[key] = features[key]*self.alpha*difference
-        #sum the weights to their corresponding newly scaled features
-        weights.__radd__(features)
-        #update weights
-        self.weights = weights.copy()
-        
+
+        # Add up to QValue
+        self.QValue[(state, action)] += self.alpha * difference
+
+        # Loop over the feature keys
+        for f in features.keys():
+
+          # Adjust the weights
+          self.weights[f] += self.alpha * difference * features[f]
+
     def final(self, state):
         "Called at the end of each game."
         # call the super-class final method
@@ -207,5 +269,5 @@ class ApproximateQAgent(PacmanQAgent):
         # did we finish training?
         if self.episodesSoFar == self.numTraining:
             # you might want to print your weights here for debugging
-            #print self.getWeights()
+            "*** YOUR CODE HERE ***"
             pass
