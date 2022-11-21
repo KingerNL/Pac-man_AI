@@ -2,8 +2,12 @@
 # Dit is de Reinforcement Learning agent, mogelijk kunnen we ook een Evolutionary Alghorithm maken?
 # Om de file te runnen kan de de volgende command gebruiken:
 # python .\capture.py -r baselineTeam -b Da_V@_Slayers
+CONTACT = 'mart.veldkamp@hva.nl', 'merlijn.dascher@hva.nl'
 
+from msilib.schema import Environment
 from sre_parse import State
+import string
+from tkinter import Y
 from captureAgents import CaptureAgent
 import random, time, util
 from game import Directions
@@ -45,8 +49,8 @@ class ChonkyBoy(CaptureAgent):
     self.observationHistory = []
     self.QValue = util.Counter()
     
-    env = self.getEnvironment(gameState)
-    print(env)
+    self.env = self.getEnvironment(gameState)
+    
     CaptureAgent.registerInitialState(self, gameState)
 
   # NOTE: Dit wordt herhaald gerunned, nu zijn beide agents deze class
@@ -59,13 +63,14 @@ class ChonkyBoy(CaptureAgent):
       of pac-man is gegeten (als ghost zijnde)
       Of General Gamestates zoals in het midden van het veld zich bevinden
     """
-    
-    
+
     """
       Krijg de state van le ChonkyBoy 
       (Dit kan alle relevante informatie over het speelveld zijn)
       Alles wat we relevante informatie kunnen vinden
     """
+    new_env = self.UpdateEnvironment(gameState, self.env)
+    print(new_env)
     Possible_Actions = gameState.getLegalActions(self.index)
     """
     Voorspel de beste Actie die daarna gegeven kan worden.
@@ -76,7 +81,7 @@ class ChonkyBoy(CaptureAgent):
       return random.choice(Possible_Actions)
     
     else:
-      print(self.computeActionFromQValues(gameState))
+      # print(self.computeActionFromQValues(gameState))
       return self.computeActionFromQValues(gameState)
 
   def getQValue(self, state, action):
@@ -156,23 +161,89 @@ class ChonkyBoy(CaptureAgent):
 
   def getEnvironment(self, gameState):
     """
-      Het liefst willen we een environment terug geven met alles erin, dus:
-      - Muren
-      - Power capsuls
-      - Food
-      - Spawn location?
-      - Enemy spawn location?
+      Returned 2D-numpy array (datatype: str) met alle belangrijke init environment info:
+        - Walls         = 'W'
+        - Food          = 'FF, EF'
+        - powercapsule  = 'FP, EP'
+        - Empty space   = '_'
+        - Agent         = 'A, FA'
     """
     
-    # Welke teamkleur zijn we:
-    My_Team_Color = gameState.isOnRedTeam(self.index)
-    if (My_Team_Color == True): print("We zijn team Rood!")
-    if (My_Team_Color == False): print("We zijn team Blauw!!!")
+    # Krijg de locatie van de walls en stops ze in de array
+    env = gameState.getWalls()
+    cop_env = []
+    for r in env:       # Voor elke row in env
+      cop_env.append(r)
+    np_env = np.array(cop_env).astype(str)
     
-    # Krijg de locatie van de walls
-    env = gameState.getWalls()      
+    # Intereer over de np array en verrander de values
+    np_env[np_env == "True"] = "W"
+    np_env[np_env == "False"] = "_"
     
-    # Krijg de locatie van de power capsules, doen we nu niks mee
-    grid = gameState.getCapsules()  
+
+    # Krijg de locatie van de power capsules, en voeg toe aan np_env
+    Is_red = gameState.isOnRedTeam(self.index)
+    R_caps = gameState.getRedCapsules()
+    B_caps = gameState.getBlueCapsules()
     
-    return env    
+    for r in R_caps:
+      if(Is_red):
+        np_env[r[0]][r[1]] = "FP"
+      else:
+        np_env[r[0]][r[1]] = "EP"
+    
+    for r in B_caps:
+      if(Is_red == 0):
+        np_env[r[0]][r[1]] = "FP"
+      else:
+        np_env[r[0]][r[1]] = "EP"
+    
+    # Krijg de locatie van alle food
+    R_food = gameState.getRedFood()
+    B_food = gameState.getBlueFood()
+    cop_env_R_food = []
+    cop_env_B_food = []
+    
+    
+    for r in R_food:
+      cop_env_R_food.append(r)
+    np_env_R_food = np.array(cop_env_R_food).astype(str)
+
+    for r in B_food:
+      cop_env_B_food.append(r)
+    np_env_B_food = np.array(cop_env_B_food).astype(str)
+    
+    # Intereer over de np array en verrander de values
+    solutions1 = np.argwhere(np_env_R_food == "True")
+    for p in solutions1:
+      if(Is_red):
+        np_env[p[0]][p[1]] = "1"
+      else:
+        np_env[p[0]][p[1]] = "0"
+        
+    solutions2 = np.argwhere(np_env_B_food == "True")
+    for p in solutions2:
+      if(Is_red == 0):
+        np_env[p[0]][p[1]] = "1"
+      else:
+        np_env[p[0]][p[1]] = "0"
+
+    
+    # Krijg positie van Agent
+    pos = gameState.getAgentPosition(self.index)
+    np_env[pos[0]][pos[1]] = "A"
+    
+    # Je kan deze print aanzetten voor debugging / check hoe de env er uit ziet.
+    # print(np_env)
+    
+    return np_env
+  
+  def UpdateEnvironment(self, gameState, np_env):
+    # Updates agent data in the env
+    np_env[np_env == "A"] = "_"
+    
+    pos = gameState.getAgentPosition(self.index)
+    np_env[pos[0]][pos[1]] = "A"
+    
+    return np_env
+  
