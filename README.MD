@@ -13,7 +13,7 @@ In this repo you can find a solution to the UC Berkeley CS 188 pac-man problems.
 
 ***
 
-### Informatie over de repo / Info about the repo
+## Informatie over de repo / Info about the repo
 
 ##### (Dutch)
 Er zijn meerdere opdrachten uitgewerkt (niet allemaal). In hoofdlijnen is dit welke opdrachten er gemaakt zijn:
