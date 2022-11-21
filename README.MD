@@ -11,6 +11,7 @@ In deze repo kan je de oplossingen vinden voor het van een introductie in AI geg
 ##### (Inglish)
 In this repo you can find a solution to the UC Berkeley CS 188 pac-man problems. The commenting in the document are mostly dutch/inglish.
 
+***
 
 ### Informatie over de repo / Info about the repo
 
