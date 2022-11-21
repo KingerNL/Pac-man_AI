@@ -1,6 +1,9 @@
 # Solve PAC-MAN using artificial intelligence
 ***
-![capsuleClassic layout](./Opdracht_3/doc/capsule.png)
+<p align="center">
+    <img src=./Opdracht_3/doc/capsule.png>
+</p>
+
 ***
 ##### (Dutch)
 In deze repo kan je de oplossingen vinden voor het van een introductie in AI gegeven voor UC Berkeley CS 188. De comments staan vooral in het nederlands/engels.
